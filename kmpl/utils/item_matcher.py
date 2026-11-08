@@ -1,7 +1,34 @@
+import os
+import json
 import re
 
-# Standard sheet weight reference (Full sheet size: 3000x1500 mm unless specified)
-STD_SHEET_WEIGHTS = {
+# Load complete master catalog from JSON (3,911 BOP, 536 Fasteners, 170 Sheet codes, 532 RM items)
+MASTER_DATA_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "kmpl_master_data.json")
+
+MASTER_BOP = {}
+MASTER_FASTENERS = {}
+MASTER_SHEETS = {}
+MASTER_RM = {}
+
+if os.path.exists(MASTER_DATA_PATH):
+    try:
+        with open(MASTER_DATA_PATH, "r", encoding="utf-8") as f:
+            _raw = json.load(f)
+            MASTER_BOP = _raw.get("bop_items", {})
+            MASTER_FASTENERS = _raw.get("fasteners", {})
+            MASTER_SHEETS = _raw.get("sheet_codes", {})
+            MASTER_RM = _raw.get("rm_items", {})
+    except Exception as e:
+        print(f"Warning: could not load {MASTER_DATA_PATH}: {e}")
+
+# Build dynamic standard sheet weights from master sheet codes
+STD_SHEET_WEIGHTS = {}
+for code, data in MASTER_SHEETS.items():
+    if data.get("full_sheet_weight"):
+        STD_SHEET_WEIGHTS[code] = data["full_sheet_weight"]
+
+# Fallback defaults if not in master
+DEFAULT_SHEET_WEIGHTS = {
     "RM-SS0.5X1500MM": 18.07,
     "RM-SS1X1500M": 36.14,
     "RM-SS1.2X1500M": 43.36,
@@ -19,8 +46,6 @@ STD_SHEET_WEIGHTS = {
     "RM-SS16X1500M": 578.16,
     "RM-SS20X1500M": 722.70,
     "RM-SS25X1500M": 903.38,
-    
-    # Mild steel sheets (3000x1500 mm)
     "RM-MS3MMX1500MM": 105.98,
     "RM-MS8X1500M": 282.60,
     "RM-MS10X1500M": 353.25,
@@ -28,8 +53,6 @@ STD_SHEET_WEIGHTS = {
     "RM-MS15X1500M": 529.88,
     "RM-MS20X1500M": 706.50,
     "RM-MS25X1500M": 883.13,
-    
-    # Plastics / Rubber / Silicon / Teflon
     "RM-REDSIS1200X3M": 8.93,
     "RM-US5X1220M": 14.88,
     "RM-PS2440X1220X5MM": 14.88,
@@ -37,6 +60,9 @@ STD_SHEET_WEIGHTS = {
     "RM-TS3X1000M": 6.60,
     "RM-TS5X1000M": 11.00
 }
+for k, v in DEFAULT_SHEET_WEIGHTS.items():
+    if k not in STD_SHEET_WEIGHTS:
+        STD_SHEET_WEIGHTS[k] = v
 
 # Standard weights per meter (kg/m) for profile items
 WEIGHT_PER_METER = {
@@ -265,27 +291,56 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
         l_match = re.search(r'[X\s](\d+)(?:MM|L|$)', u_desc)
         l_val = l_match.group(1) if l_match else ""
         
+        target_code = ""
         if "STUD" in u_desc or "THREADED" in u_desc:
-            return f"F-ST{m_size}"
-        if "NUT" in u_desc:
-            return f"F-HN{m_size}"
-        if "SPRING WASHER" in u_desc:
-            return f"F-SW{m_size}"
-        if "WASHER" in u_desc:
-            return f"F-PW{m_size}"
-        if "CSK" in u_desc:
-            return f"F-ALCSKB{m_size[1:]}X{l_val}MM" if l_val else f"F-ALCSKB{m_size}"
-        if "HEX" in u_desc:
-            return f"F-HB{m_size}X{l_val}" if l_val else f"F-HB{m_size}"
-        if "GRUB" in u_desc:
-            return f"F-GS{m_size[1:]}X{l_val}" if l_val else f"F-GS{m_size}"
-        return f"F-ALB{m_size}X{l_val}" if l_val else f"F-ALB{m_size}"
+            target_code = f"F-ST{m_size}"
+        elif "NUT" in u_desc:
+            target_code = f"F-HN{m_size}"
+        elif "SPRING WASHER" in u_desc:
+            target_code = f"F-SW{m_size}"
+        elif "WASHER" in u_desc:
+            target_code = f"F-PW{m_size}"
+        elif "CSK" in u_desc:
+            target_code = f"F-ALCSKB{m_size[1:]}X{l_val}MM" if l_val else f"F-ALCSKB{m_size}"
+        elif "HEX" in u_desc:
+            target_code = f"F-HB{m_size}X{l_val}" if l_val else f"F-HB{m_size}"
+        elif "GRUB" in u_desc:
+            target_code = f"F-GS{m_size[1:]}X{l_val}" if l_val else f"F-GS{m_size}"
+        else:
+            target_code = f"F-ALB{m_size}X{l_val}" if l_val else f"F-ALB{m_size}"
+            
+        # Verify if exists in master fasteners, or find close match
+        if target_code in MASTER_FASTENERS:
+            return target_code
+        # Check without MM or with MM
+        alt_code = target_code + "MM" if not target_code.endswith("MM") else target_code[:-2]
+        if alt_code in MASTER_FASTENERS:
+            return alt_code
+        return target_code
         
     # 8. BOP
     elif rm_type == "Raw Material-BOP":
+        # Direct exact match in 3,911 Master BOP catalog
+        if u_desc in MASTER_BOP:
+            return MASTER_BOP[u_desc]["code"]
+            
+        # Check known BOP dictionary
         for k, v in BOP_CATALOG.items():
             if k in u_desc:
                 return v
+                
+        # Token-based search in 3,911 Master BOP items
+        tokens = [w for w in re.split(r'[\s,\-_/]+', u_desc) if len(w) > 2 and w not in ["MAKE", "NOS", "FOR", "AND", "TYPE"]]
+        if tokens:
+            for m_desc, m_info in MASTER_BOP.items():
+                if all(tok in m_desc for tok in tokens):
+                    return m_info["code"]
+            # Partial match with high relevance
+            for m_desc, m_info in MASTER_BOP.items():
+                match_count = sum(1 for tok in tokens if tok in m_desc)
+                if match_count >= 2 and match_count >= len(tokens) - 1:
+                    return m_info["code"]
+
         return "BOP-STD"
 
     return "RM-STD"
