@@ -19,7 +19,7 @@ custom_fields = {
             "fieldname": "custom_rm_type",
             "label": "Type of RM",
             "fieldtype": "Select",
-            "options": "Raw Material-PLATE\nRaw Material-SQ PIPE\nRaw Material-PIPE\nRaw Material-ISA ANGLE\nRaw Material-ROD\nRaw Material-SQ BAR\nRaw Material-BLOCK\nRaw Material-FASTENER\nRaw Material-BOP",
+            "options": "Raw Material-PLATE\nRaw Material-SQ PIPE\nRaw Material-REC PIPE\nRaw Material-PIPE\nRaw Material-ISA ANGLE\nRaw Material-ROD\nRaw Material-SQ BAR\nRaw Material-REC BAR\nRaw Material-FLAT\nRaw Material-CIRCLE\nRaw Material-BLOCK\nRaw Material-FASTENER\nRaw Material-BOP",
             "insert_after": "custom_kmpl_section",
             "in_list_view": 1,
             "in_standard_filter": 1
