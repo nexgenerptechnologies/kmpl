@@ -12,8 +12,8 @@ custom_fields = {
             "fieldname": "custom_kmpl_section",
             "label": "KMPL Design & RM Specifications",
             "fieldtype": "Section Break",
-            "insert_after": "item_name",
-            "collapsible": 1
+            "insert_after": "description",
+            "collapsible": 0
         },
         {
             "fieldname": "custom_rm_type",
