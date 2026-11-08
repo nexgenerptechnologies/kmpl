@@ -4,38 +4,41 @@
 [![ERPNext Version](https://img.shields.io/badge/erpnext-v16-green.svg)](https://erpnext.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**KMPL** is a custom Frappe app designed for ERPNext v16 to automate the parsing, material classification, weight calculation, and summary compilation of SolidWorks Design BOM files (`001SW-PARTS BOM.xlsx`) into standard Production BOMs and Raw Material/Fastener/BOP summaries (`001FINAL-PARTS BOMDF.xlsx`), with seamless integration into native ERPNext Manufacturing Items and BOMs.
+**KMPL** is a native ERPNext v16 app that extends standard ERPNext **Item** Master with engineering/design specifications and compiles SolidWorks BOM files (`001SW-PARTS BOM.xlsx`) into production BOMs, cut-lists, and raw material summaries (`001FINAL-PARTS BOMDF.xlsx`), creating official ERPNext Manufacturing Items and BOMs.
+
+---
+
+## Unified Architecture (Standard ERPNext Item Master)
+
+Instead of managing separate duplicate master lists, KMPL adds custom engineering fields directly to the standard ERPNext **Item** master:
+
+* **Type of RM** (`custom_rm_type`): Select (*Raw Material-PLATE, Raw Material-SQ PIPE, Raw Material-PIPE, Raw Material-ISA ANGLE, Raw Material-ROD, Raw Material-FASTENER, Raw Material-BOP*).
+* **Thickness / Size** (`custom_thickness_size`): e.g. `1.5`, `3`, `50x3`, `M24`.
+* **Standard Full Sheet Weight (kg)** (`custom_full_sheet_weight`): e.g. `54.20`, `108.41` (used to calculate full sheets needed: `Total Weight / Full Sheet Wt`).
+* **Weight per Meter (kg/m)** (`custom_weight_per_meter`): e.g. `4.12`, `3.49` (used to calculate weights and procurement meters for pipes, angles, rods).
+* **MOC** (`custom_moc`): e.g. `AISI 304`, `MS`.
+* **Design Description Pattern** (`custom_design_pattern`): SolidWorks drawing keywords used for auto-matching.
 
 ---
 
 ## Features
 
-1. **Automatic Tree Hierarchy Resolution**:
-   - Parses indentation levels in SolidWorks BOM exports.
-   - Automatically tracks drawing numbers (`Dwg. No.`) from parent subassemblies and propagates them to child cut pieces.
+1. **Zero Duplicate Masters**:
+   - Manage all items directly in ERPNext's native **Item** master.
+   - Use standard ERPNext **Data Import** to bulk-import items from Excel anytime.
 
-2. **Intelligent Material Classification & Dimension Extraction**:
-   - Classifies items into `Raw Material-PLATE`, `Raw Material-SQ PIPE`, `Raw Material-PIPE`, `Raw Material-ISA ANGLE`, `Raw Material-ROD`, `Raw Material-SQ BAR`, `Raw Material-BLOCK`, `Raw Material-FASTENER`, and `Raw Material-BOP`.
-   - Extracts 3D dimensions (Length, Width, Thickness / Diameter, M-sizes) directly from SolidWorks descriptions and bounding boxes.
+2. **Automatic Tree Hierarchy Resolution**:
+   - Evaluates indentation in SolidWorks BOM exports (`PART NUMBER` column).
+   - Automatically tracks parent drawing numbers (`Dwg. No.`) and propagates them to child cut pieces.
 
-3. **Master List Lookups & Standard Item Codes**:
-   - Matches raw material codes (e.g. `RM-SS1.5X1500M`, `RM-SSQP50X3M`, `RM-SA40X3M`, `RM-SR25M`) based on standard thickness and section charts.
-   - Matches Fasteners (`F-ALBM...`, `F-HBM...`, `F-HNM...`, `F-STM...`) based on standard fastener tables.
-   - Maps Bought Out Parts (`BE-...`, `HW-...`, `ECO-...`, `V-...`, `GM-...`, `SP-...`, `PU-...`, `PN-...`, `RB-...`) against the 3,900+ BOP master catalog.
-
-4. **Automated Summary Rollup**:
+3. **Intelligent Material Weight & Summary Calculation**:
    - **Plates & Sheets**: Calculates total weight and required full sheet counts (`Total Weight / Standard Full Sheet Weight`).
    - **Pipes, Angles & Rods**: Calculates total weight and required procurement length in meters (`Sum of lengths / 1000`).
    - **Fasteners & BOP**: Groups and rolls up total piece counts.
 
-5. **Full Master Data Management from ERPNext UI**:
-   - **KMPL BOP Master**: Add, edit, or import bought-out items (bearings, motors, valves, castors, glands) directly in ERPNext.
-   - **KMPL RM Master**: Add new raw material sheets, pipe sizes, or fasteners on the fly.
-   - **KMPL Settings**: Upload updated `MASTER ITEM LIST BOP.xlsx` or `STD SUMMARY FOR RM & FASTENERS.xlsx` to bulk-sync 5,000+ items with 1 click!
-
-6. **ERPNext v16 Integration & Excel Exporter**:
+4. **1-Click Manufacturing BOM & Excel Export**:
    - Generates exact formatted Excel workbooks with two sheets: `[Project-No]` detailed sheet and `SUMMARY` sheet.
-   - Automatically creates standard ERPNext `Item` records and multi-level manufacturing `BOM`s in ERPNext.
+   - Automatically creates standard ERPNext `Item` records (if not present) and creates the official manufacturing `BOM` in ERPNext.
 
 ---
 
@@ -48,61 +51,37 @@ bench get-app https://github.com/nexgenerptechnologies/kmpl.git
 # 2. Install the app onto your site
 bench --site <your-site-name> install-app kmpl
 
-# 3. Run migrations
+# 3. Run migrations (automatically creates custom fields on Item)
 bench --site <your-site-name> migrate
 ```
 
 ---
 
-## How to Use inside ERPNext
+## How to Manage Items in ERPNext
 
-1. Open **Desk** $\rightarrow$ Search for **Design BOM Compiler**.
-2. Click **Add Design BOM Compiler**:
-   * Enter **Project No.** (e.g. `2559-01`).
-   * Enter **Equipment Name** (e.g. `Continuous Trail`).
-   * Enter **P.O. Qty** and **BOM Date**.
-   * Attach your SolidWorks BOM Excel file (`001SW-PARTS BOM.xlsx`).
+### Option A: Add a Single Item
+1. Open **Item** $\rightarrow$ Click **+ Add Item**.
+2. Enter Item Code, Item Name, Item Group, and UOM.
+3. In the **KMPL Design & RM Specifications** section, enter Thickness, Full Sheet Weight, or Weight per Meter.
+4. Click **Save**.
+
+### Option B: Bulk Import via Standard ERPNext Data Import
+1. Go to **Data Import** in ERPNext.
+2. Select DocType: **Item**.
+3. Upload `sample_files/ITEM_MASTER_IMPORT_READY.xlsx` (pre-populated with 5,140+ master items and custom fields).
+4. Click **Start Import**.
+
+---
+
+## How to Compile a SolidWorks BOM
+
+1. Open **Design BOM Compiler** in ERPNext.
+2. Enter **Project No.** (e.g. `2559-01`), **Equipment Name** (e.g. `Continuous Trail`), **P.O. Qty**, and attach `001SW-PARTS BOM.xlsx`.
 3. Click **Compile BOM**:
-   * The system automatically parses all components, resolves drawing numbers, extracts dimensions, computes weights, and populates both the **BOM Items** and **BOM Summary** child tables.
-4. Click **Download Final Excel**:
-   * Exports the formatted Excel workbook identical to `001FINAL-PARTS BOMDF.xlsx`.
-5. Click **Create ERPNext BOM**:
-   * Generates native ERPNext `Item` records for items not yet in the master and creates the official manufacturing `BOM`.
-
----
-
-## Standalone CLI Usage (Without Bench)
-
-You can run the compiler directly from the command line:
-
-```bash
-python kmpl/compile_cli.py "001SW-PARTS BOM.xlsx" "001FINAL-PARTS BOMDF-GENERATED.xlsx"
-```
-
----
-
-## Repository Structure
-
-```text
-kmpl/
-├── pyproject.toml
-├── requirements.txt
-├── README.md
-├── license.txt
-└── kmpl/
-    ├── hooks.py
-    ├── compile_cli.py                 # Standalone CLI compiler
-    ├── kmpl/
-    │   └── doctype/
-    │       ├── design_bom_compiler/   # Main DocType & Controller
-    │       ├── design_bom_item/       # Detailed BOM child table
-    │       └── design_bom_summary_item/# Summary child table
-    └── utils/
-        ├── bom_parser.py              # SolidWorks tree parser & dimension extractor
-        ├── item_matcher.py            # Master item code and classification rules
-        ├── weight_calculator.py       # Weights, sheet fractions, and meter totals
-        └── excel_exporter.py          # Professional Excel workbook generator
-```
+   * Auto-populates **BOM Items** (cut pieces, plates, pipes, fasteners, drawing numbers).
+   * Auto-populates **Summary Items** (grouped sheets, meter totals, counts).
+4. Click **Download Final Excel** to download the formatted `.xlsx` workbook.
+5. Click **Create ERPNext BOM** to generate the native manufacturing BOM in ERPNext.
 
 ---
 

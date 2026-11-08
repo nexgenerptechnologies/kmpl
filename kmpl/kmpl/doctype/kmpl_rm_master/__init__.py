@@ -1,1 +1,0 @@
-# KMPL RM Master DocType

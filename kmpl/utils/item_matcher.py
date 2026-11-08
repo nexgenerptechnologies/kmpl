@@ -328,12 +328,23 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
         
     # 8. BOP
     elif rm_type == "Raw Material-BOP":
-        # Check live ERPNext database first (if any item was added via UI)
+        # Check standard ERPNext Item Master first
         if frappe and hasattr(frappe, "db") and frappe.db:
             try:
-                db_code = frappe.db.get_value("KMPL BOP Master", {"item_name_description": ["like", f"%{desc.strip()}%"]}, "item_code")
-                if db_code:
-                    return db_code
+                # 1. Check custom_design_pattern or item_name
+                db_item = frappe.db.get_value(
+                    "Item",
+                    {"custom_design_pattern": ["like", f"%{desc.strip()}%"], "disabled": 0},
+                    "name"
+                )
+                if not db_item:
+                    db_item = frappe.db.get_value(
+                        "Item",
+                        {"item_name": desc.strip(), "disabled": 0},
+                        "name"
+                    )
+                if db_item:
+                    return db_item
             except Exception:
                 pass
 

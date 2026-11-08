@@ -163,7 +163,11 @@ class DesignBOMCompiler(Document):
                     "item_name": row.description or row.item_code,
                     "item_group": "Raw Material" if "Raw Material" in (row.rm_type or "") else "Bought Out Parts",
                     "is_stock_item": 1,
-                    "stock_uom": row.unit or "Nos"
+                    "stock_uom": row.unit or "Nos",
+                    "custom_rm_type": row.rm_type,
+                    "custom_thickness_size": str(row.thk or ""),
+                    "custom_moc": row.moc or "AISI 304",
+                    "custom_design_pattern": row.description
                 })
                 itm.insert(ignore_permissions=True)
 

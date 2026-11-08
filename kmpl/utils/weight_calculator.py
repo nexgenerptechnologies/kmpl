@@ -130,7 +130,7 @@ def compile_summary(bom_items: list, project_no: str = "") -> list:
             std_sheet_wt = STD_SHEET_WEIGHTS.get(icode, 54.20)
             if frappe and hasattr(frappe, "db") and frappe.db:
                 try:
-                    db_sh_wt = frappe.db.get_value("KMPL RM Master", icode, "full_sheet_weight")
+                    db_sh_wt = frappe.db.get_value("Item", icode, "custom_full_sheet_weight")
                     if db_sh_wt:
                         std_sheet_wt = float(db_sh_wt)
                 except Exception:
