@@ -14,8 +14,11 @@ class KMPLSettings(Document):
         Loads BOP items and STD RM/Fasteners into KMPL BOP Master and KMPL RM Master.
         Can read from uploaded Excel files or from pre-bundled data.
         """
-        app_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        json_cache = os.path.join(app_path, "data", "kmpl_master_data.json")
+        if hasattr(frappe, "get_app_path"):
+            json_cache = frappe.get_app_path("kmpl", "data", "kmpl_master_data.json")
+        else:
+            app_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+            json_cache = os.path.join(app_path, "data", "kmpl_master_data.json")
 
         bop_count = 0
         rm_count = 0

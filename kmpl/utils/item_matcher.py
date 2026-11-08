@@ -8,7 +8,10 @@ except ImportError:
     frappe = None
 
 # Load complete master catalog from JSON (3,911 BOP, 536 Fasteners, 170 Sheet codes, 532 RM items)
-MASTER_DATA_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "kmpl_master_data.json")
+if frappe and hasattr(frappe, "get_app_path"):
+    MASTER_DATA_PATH = frappe.get_app_path("kmpl", "data", "kmpl_master_data.json")
+else:
+    MASTER_DATA_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "kmpl_master_data.json")
 
 MASTER_BOP = {}
 MASTER_FASTENERS = {}
