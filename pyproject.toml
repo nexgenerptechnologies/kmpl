@@ -1,0 +1,20 @@
+[build-system]
+requires = ["flit_core >=3.4,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "kmpl"
+authors = [
+    { name = "Nexgen ERP Technologies", email = "info@nexgenerptechnologies.com"}
+]
+description = "KMPL SolidWorks Design BOM Compiler and ERPNext v16 Integration"
+requires-python = ">=3.10"
+readme = "README.md"
+dynamic = ["version"]
+dependencies = [
+    "openpyxl>=3.1.2",
+    "pandas>=2.0.0"
+]
+
+[tool.bench]
+frappe_version = ">=16.0.0"

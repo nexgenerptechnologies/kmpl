@@ -1,0 +1,117 @@
+{
+  "actions": [],
+  "allow_rename": 1,
+  "creation": "2026-11-08 18:00:00.000000",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "category",
+    "rm_type",
+    "dwg_no",
+    "item_code",
+    "description",
+    "column_break_dim",
+    "length",
+    "width",
+    "thk",
+    "unit_qty",
+    "unit_weight",
+    "total_weight",
+    "moc",
+    "unit",
+    "remarks"
+  ],
+  "fields": [
+    {
+      "fieldname": "category",
+      "fieldtype": "Data",
+      "label": "Category",
+      "default": "C"
+    },
+    {
+      "fieldname": "rm_type",
+      "fieldtype": "Select",
+      "label": "Type of RM",
+      "options": "Raw Material-PLATE\nRaw Material-SQ PIPE\nRaw Material-PIPE\nRaw Material-ISA ANGLE\nRaw Material-ROD\nRaw Material-SQ BAR\nRaw Material-BLOCK\nRaw Material-FASTENER\nRaw Material-BOP"
+    },
+    {
+      "fieldname": "dwg_no",
+      "fieldtype": "Data",
+      "label": "Dwg. No."
+    },
+    {
+      "fieldname": "item_code",
+      "fieldtype": "Data",
+      "label": "Item Code",
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "description",
+      "fieldtype": "Small Text",
+      "label": "Description",
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "column_break_dim",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "length",
+      "fieldtype": "Float",
+      "label": "Length (mm)",
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "width",
+      "fieldtype": "Float",
+      "label": "Width (mm)"
+    },
+    {
+      "fieldname": "thk",
+      "fieldtype": "Data",
+      "label": "Thk / Dia",
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "unit_qty",
+      "fieldtype": "Float",
+      "label": "Unit Qty",
+      "in_list_view": 1,
+      "default": "1"
+    },
+    {
+      "fieldname": "unit_weight",
+      "fieldtype": "Float",
+      "label": "Unit Weight (Kg)",
+      "precision": "4"
+    },
+    {
+      "fieldname": "total_weight",
+      "fieldtype": "Float",
+      "label": "Total Weight (Kg)",
+      "in_list_view": 1,
+      "precision": "3"
+    },
+    {
+      "fieldname": "moc",
+      "fieldtype": "Data",
+      "label": "MOC",
+      "default": "AISI 304"
+    },
+    {
+      "fieldname": "unit",
+      "fieldtype": "Data",
+      "label": "Unit",
+      "default": "Kg"
+    },
+    {
+      "fieldname": "remarks",
+      "fieldtype": "Data",
+      "label": "Remarks"
+    }
+  ],
+  "istable": 1,
+  "module": "KMPL",
+  "name": "Design BOM Item",
+  "owner": "Administrator"
+}

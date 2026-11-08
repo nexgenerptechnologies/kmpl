@@ -1,0 +1,103 @@
+{
+  "actions": [],
+  "allow_rename": 1,
+  "creation": "2026-11-08 18:00:00.000000",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "project_no",
+    "category",
+    "item_code",
+    "rm_type",
+    "description",
+    "thk_mm",
+    "column_break_qty",
+    "weight_kg",
+    "unit_weight",
+    "general_description",
+    "length_qty",
+    "unit",
+    "moc"
+  ],
+  "fields": [
+    {
+      "fieldname": "project_no",
+      "fieldtype": "Data",
+      "label": "Project No."
+    },
+    {
+      "fieldname": "category",
+      "fieldtype": "Data",
+      "label": "Category",
+      "default": "C"
+    },
+    {
+      "fieldname": "item_code",
+      "fieldtype": "Data",
+      "label": "Item Code",
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "rm_type",
+      "fieldtype": "Data",
+      "label": "RM Type",
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "description",
+      "fieldtype": "Small Text",
+      "label": "Description",
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "thk_mm",
+      "fieldtype": "Data",
+      "label": "Thk (mm)"
+    },
+    {
+      "fieldname": "column_break_qty",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "weight_kg",
+      "fieldtype": "Float",
+      "label": "Weight (Kg)",
+      "in_list_view": 1,
+      "precision": "2"
+    },
+    {
+      "fieldname": "unit_weight",
+      "fieldtype": "Data",
+      "label": "Weight Unit",
+      "default": "Kg"
+    },
+    {
+      "fieldname": "general_description",
+      "fieldtype": "Data",
+      "label": "General Description"
+    },
+    {
+      "fieldname": "length_qty",
+      "fieldtype": "Float",
+      "label": "Sheets / Length / Qty",
+      "in_list_view": 1,
+      "precision": "3"
+    },
+    {
+      "fieldname": "unit",
+      "fieldtype": "Data",
+      "label": "Unit",
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "moc",
+      "fieldtype": "Data",
+      "label": "MOC",
+      "default": "AISI 304"
+    }
+  ],
+  "istable": 1,
+  "module": "KMPL",
+  "name": "Design BOM Summary Item",
+  "owner": "Administrator"
+}

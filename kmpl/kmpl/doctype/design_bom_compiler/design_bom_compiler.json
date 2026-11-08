@@ -1,0 +1,181 @@
+{
+  "actions": [],
+  "allow_rename": 1,
+  "autoname": "naming_series:",
+  "creation": "2026-11-08 18:00:00.000000",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "naming_series",
+    "project_no",
+    "equipment_name",
+    "bom_name",
+    "bom_date",
+    "column_break_hdr",
+    "po_qty",
+    "unit",
+    "status",
+    "design_bom_file",
+    "section_break_stats",
+    "total_weight_kg",
+    "column_break_stats",
+    "total_items_count",
+    "section_break_items",
+    "items",
+    "section_break_summary",
+    "summary_items"
+  ],
+  "fields": [
+    {
+      "default": "BOM-COMP-.YYYY.-",
+      "fieldname": "naming_series",
+      "fieldtype": "Select",
+      "label": "Series",
+      "options": "BOM-COMP-.YYYY.-"
+    },
+    {
+      "fieldname": "project_no",
+      "fieldtype": "Data",
+      "in_list_view": 1,
+      "label": "Project No.",
+      "reqd": 1
+    },
+    {
+      "fieldname": "equipment_name",
+      "fieldtype": "Data",
+      "in_list_view": 1,
+      "label": "Equipment Name",
+      "reqd": 1
+    },
+    {
+      "fieldname": "bom_name",
+      "fieldtype": "Data",
+      "label": "BOM Name"
+    },
+    {
+      "default": "Today",
+      "fieldname": "bom_date",
+      "fieldtype": "Date",
+      "label": "BOM Date"
+    },
+    {
+      "fieldname": "column_break_hdr",
+      "fieldtype": "Column Break"
+    },
+    {
+      "default": "1",
+      "fieldname": "po_qty",
+      "fieldtype": "Float",
+      "label": "P.O Qty.",
+      "reqd": 1
+    },
+    {
+      "default": "Nos.",
+      "fieldname": "unit",
+      "fieldtype": "Data",
+      "label": "Unit"
+    },
+    {
+      "default": "Draft",
+      "fieldname": "status",
+      "fieldtype": "Select",
+      "in_list_view": 1,
+      "label": "Status",
+      "options": "Draft\nCompiled\nExported\nSynced with ERPNext"
+    },
+    {
+      "fieldname": "design_bom_file",
+      "fieldtype": "Attach",
+      "label": "SolidWorks Design BOM Excel (.xlsx)",
+      "reqd": 1
+    },
+    {
+      "fieldname": "section_break_stats",
+      "fieldtype": "Section Break",
+      "label": "BOM Statistics"
+    },
+    {
+      "fieldname": "total_weight_kg",
+      "fieldtype": "Float",
+      "label": "Total Weight (Kg)",
+      "precision": "2",
+      "read_only": 1
+    },
+    {
+      "fieldname": "column_break_stats",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "total_items_count",
+      "fieldtype": "Int",
+      "label": "Total Items",
+      "read_only": 1
+    },
+    {
+      "fieldname": "section_break_items",
+      "fieldtype": "Section Break",
+      "label": "Detailed BOM Items"
+    },
+    {
+      "fieldname": "items",
+      "fieldtype": "Table",
+      "label": "BOM Items",
+      "options": "Design BOM Item"
+    },
+    {
+      "fieldname": "section_break_summary",
+      "fieldtype": "Section Break",
+      "label": "Raw Material & Fasteners Summary"
+    },
+    {
+      "fieldname": "summary_items",
+      "fieldtype": "Table",
+      "label": "Summary Items",
+      "options": "Design BOM Summary Item"
+    }
+  ],
+  "module": "KMPL",
+  "name": "Design BOM Compiler",
+  "naming_rule": "By \"Naming Series\" field",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Manufacturing Manager",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "create": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Manufacturing User",
+      "share": 1,
+      "write": 1
+    }
+  ],
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "track_changes": 1
+}

@@ -1,0 +1,21 @@
+~$*
+*.tmp
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.egg-info/
+.installed.cfg
+*.egg
+.env
+.venv
+env/
+venv/
+ENV/
+.bench/
+*.log
+.DS_Store
+Thumbs.db
+node_modules/
+001FINAL-PARTS BOMDF-GENERATED.xlsx
+
