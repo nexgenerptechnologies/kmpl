@@ -1,0 +1,125 @@
+{
+  "actions": [],
+  "allow_rename": 1,
+  "autoname": "field:item_code",
+  "creation": "2026-11-08 22:00:00.000000",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "item_code",
+    "item_name_description",
+    "column_break_info",
+    "main_group",
+    "sub_group",
+    "section_break_extra",
+    "block_material",
+    "bearing_material",
+    "column_break_extra",
+    "make_brand",
+    "is_active"
+  ],
+  "fields": [
+    {
+      "fieldname": "item_code",
+      "fieldtype": "Data",
+      "in_list_view": 1,
+      "label": "Item Code",
+      "reqd": 1,
+      "unique": 1
+    },
+    {
+      "fieldname": "item_name_description",
+      "fieldtype": "Small Text",
+      "in_list_view": 1,
+      "label": "Item Name & Description",
+      "reqd": 1
+    },
+    {
+      "fieldname": "column_break_info",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "main_group",
+      "fieldtype": "Data",
+      "in_list_view": 1,
+      "label": "Main Group"
+    },
+    {
+      "fieldname": "sub_group",
+      "fieldtype": "Data",
+      "in_list_view": 1,
+      "label": "Sub Group"
+    },
+    {
+      "fieldname": "section_break_extra",
+      "fieldtype": "Section Break",
+      "label": "Specifications & Make"
+    },
+    {
+      "fieldname": "block_material",
+      "fieldtype": "Data",
+      "label": "Block Material"
+    },
+    {
+      "fieldname": "bearing_material",
+      "fieldtype": "Data",
+      "label": "Bearing Material"
+    },
+    {
+      "fieldname": "column_break_extra",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "make_brand",
+      "fieldtype": "Data",
+      "label": "Make / Brand"
+    },
+    {
+      "default": "1",
+      "fieldname": "is_active",
+      "fieldtype": "Check",
+      "label": "Is Active"
+    }
+  ],
+  "module": "KMPL",
+  "name": "KMPL BOP Master",
+  "naming_rule": "By fieldname",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "import": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "import": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Manufacturing Manager",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "read": 1,
+      "report": 1,
+      "role": "Manufacturing User"
+    }
+  ],
+  "search_fields": "item_code,item_name_description,main_group,sub_group",
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "track_changes": 1
+}

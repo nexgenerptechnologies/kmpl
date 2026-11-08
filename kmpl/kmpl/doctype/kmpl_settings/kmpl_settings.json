@@ -1,0 +1,105 @@
+{
+  "actions": [],
+  "allow_rename": 1,
+  "creation": "2026-11-08 22:00:00.000000",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "section_break_masters",
+    "bop_master_file",
+    "std_summary_file",
+    "column_break_stats",
+    "last_synced_on",
+    "sync_status",
+    "total_bop_items",
+    "total_rm_items",
+    "section_break_help",
+    "help_html"
+  ],
+  "fields": [
+    {
+      "fieldname": "section_break_masters",
+      "fieldtype": "Section Break",
+      "label": "Master Data Synchronization"
+    },
+    {
+      "fieldname": "bop_master_file",
+      "fieldtype": "Attach",
+      "label": "Updated MASTER ITEM LIST BOP (.xlsx)"
+    },
+    {
+      "fieldname": "std_summary_file",
+      "fieldtype": "Attach",
+      "label": "Updated STD SUMMARY FOR RM & FASTENERS (.xlsx)"
+    },
+    {
+      "fieldname": "column_break_stats",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "last_synced_on",
+      "fieldtype": "Datetime",
+      "label": "Last Synced On",
+      "read_only": 1
+    },
+    {
+      "fieldname": "sync_status",
+      "fieldtype": "Data",
+      "label": "Sync Status",
+      "read_only": 1
+    },
+    {
+      "fieldname": "total_bop_items",
+      "fieldtype": "Int",
+      "label": "Total Active BOP Items",
+      "read_only": 1
+    },
+    {
+      "fieldname": "total_rm_items",
+      "fieldtype": "Int",
+      "label": "Total Active RM & Fasteners",
+      "read_only": 1
+    },
+    {
+      "fieldname": "section_break_help",
+      "fieldtype": "Section Break",
+      "label": "How to Manage Master Data"
+    },
+    {
+      "default": "<div class='text-muted' style='font-size: 13px; line-height: 1.6;'><p><b>1. Individual Item Management:</b> You can view, add, or edit individual bought-out items or raw materials directly in ERPNext by opening <b>KMPL BOP Master</b> and <b>KMPL RM Master</b>.</p><p><b>2. Bulk Update from Excel:</b> Whenever your purchase or design team updates the master Excel files, attach them above and click <b>Sync Masters from Excel</b>. If left blank, it will load the pre-bundled 5,100+ master items.</p></div>",
+      "fieldname": "help_html",
+      "fieldtype": "HTML",
+      "label": "Help & Instructions"
+    }
+  ],
+  "issingle": 1,
+  "module": "KMPL",
+  "name": "KMPL Settings",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "role": "System Manager",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "create": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "role": "Manufacturing Manager",
+      "share": 1,
+      "write": 1
+    }
+  ],
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "track_changes": 1
+}

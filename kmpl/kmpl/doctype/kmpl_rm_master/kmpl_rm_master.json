@@ -1,0 +1,125 @@
+{
+  "actions": [],
+  "allow_rename": 1,
+  "autoname": "field:item_code",
+  "creation": "2026-11-08 22:00:00.000000",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "item_code",
+    "rm_type",
+    "description",
+    "general_description",
+    "column_break_dim",
+    "thickness_size",
+    "weight_per_meter",
+    "full_sheet_weight",
+    "moc",
+    "unit"
+  ],
+  "fields": [
+    {
+      "fieldname": "item_code",
+      "fieldtype": "Data",
+      "in_list_view": 1,
+      "label": "Item Code",
+      "reqd": 1,
+      "unique": 1
+    },
+    {
+      "fieldname": "rm_type",
+      "fieldtype": "Select",
+      "in_list_view": 1,
+      "label": "Type of RM",
+      "options": "Raw Material-PLATE\nRaw Material-SQ PIPE\nRaw Material-PIPE\nRaw Material-ISA ANGLE\nRaw Material-ROD\nRaw Material-SQ BAR\nRaw Material-BLOCK\nRaw Material-FASTENER\nRaw Material-BOP",
+      "reqd": 1
+    },
+    {
+      "fieldname": "description",
+      "fieldtype": "Small Text",
+      "in_list_view": 1,
+      "label": "Description"
+    },
+    {
+      "fieldname": "general_description",
+      "fieldtype": "Data",
+      "label": "General Description"
+    },
+    {
+      "fieldname": "column_break_dim",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "thickness_size",
+      "fieldtype": "Data",
+      "in_list_view": 1,
+      "label": "Thickness / Size (mm)"
+    },
+    {
+      "fieldname": "weight_per_meter",
+      "fieldtype": "Float",
+      "label": "Weight per Meter (kg/m)",
+      "precision": "3"
+    },
+    {
+      "fieldname": "full_sheet_weight",
+      "fieldtype": "Float",
+      "label": "Full Sheet Standard Weight (kg)",
+      "precision": "2"
+    },
+    {
+      "default": "AISI 304",
+      "fieldname": "moc",
+      "fieldtype": "Data",
+      "in_list_view": 1,
+      "label": "MOC"
+    },
+    {
+      "default": "Kg",
+      "fieldname": "unit",
+      "fieldtype": "Data",
+      "label": "Unit"
+    }
+  ],
+  "module": "KMPL",
+  "name": "KMPL RM Master",
+  "naming_rule": "By fieldname",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "import": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "import": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Manufacturing Manager",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "read": 1,
+      "report": 1,
+      "role": "Manufacturing User"
+    }
+  ],
+  "search_fields": "item_code,rm_type,description,thickness_size,moc",
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "track_changes": 1
+}

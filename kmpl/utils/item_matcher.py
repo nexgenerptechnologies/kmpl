@@ -2,6 +2,11 @@ import os
 import json
 import re
 
+try:
+    import frappe
+except ImportError:
+    frappe = None
+
 # Load complete master catalog from JSON (3,911 BOP, 536 Fasteners, 170 Sheet codes, 532 RM items)
 MASTER_DATA_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "kmpl_master_data.json")
 
@@ -320,6 +325,15 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
         
     # 8. BOP
     elif rm_type == "Raw Material-BOP":
+        # Check live ERPNext database first (if any item was added via UI)
+        if frappe and hasattr(frappe, "db") and frappe.db:
+            try:
+                db_code = frappe.db.get_value("KMPL BOP Master", {"item_name_description": ["like", f"%{desc.strip()}%"]}, "item_code")
+                if db_code:
+                    return db_code
+            except Exception:
+                pass
+
         # Direct exact match in 3,911 Master BOP catalog
         if u_desc in MASTER_BOP:
             return MASTER_BOP[u_desc]["code"]

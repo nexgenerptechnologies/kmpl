@@ -28,7 +28,12 @@
    - **Pipes, Angles & Rods**: Calculates total weight and required procurement length in meters (`Sum of lengths / 1000`).
    - **Fasteners & BOP**: Groups and rolls up total piece counts.
 
-5. **ERPNext v16 Integration & Excel Exporter**:
+5. **Full Master Data Management from ERPNext UI**:
+   - **KMPL BOP Master**: Add, edit, or import bought-out items (bearings, motors, valves, castors, glands) directly in ERPNext.
+   - **KMPL RM Master**: Add new raw material sheets, pipe sizes, or fasteners on the fly.
+   - **KMPL Settings**: Upload updated `MASTER ITEM LIST BOP.xlsx` or `STD SUMMARY FOR RM & FASTENERS.xlsx` to bulk-sync 5,000+ items with 1 click!
+
+6. **ERPNext v16 Integration & Excel Exporter**:
    - Generates exact formatted Excel workbooks with two sheets: `[Project-No]` detailed sheet and `SUMMARY` sheet.
    - Automatically creates standard ERPNext `Item` records and multi-level manufacturing `BOM`s in ERPNext.
 

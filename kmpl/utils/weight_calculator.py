@@ -2,6 +2,11 @@ import math
 from collections import defaultdict
 from .item_matcher import STD_SHEET_WEIGHTS, WEIGHT_PER_METER
 
+try:
+    import frappe
+except ImportError:
+    frappe = None
+
 SS_DENSITY = 0.00000803  # kg / mm^3 (AISI 304)
 MS_DENSITY = 0.00000785  # kg / mm^3 (Mild steel)
 PLASTIC_DENSITY = 0.00000100  # kg / mm^3 (Teflon / UHMWPE / Silicon)
@@ -123,6 +128,13 @@ def compile_summary(bom_items: list, project_no: str = "") -> list:
         # Calculate summary length/qty & unit
         if data["is_plate"]:
             std_sheet_wt = STD_SHEET_WEIGHTS.get(icode, 54.20)
+            if frappe and hasattr(frappe, "db") and frappe.db:
+                try:
+                    db_sh_wt = frappe.db.get_value("KMPL RM Master", icode, "full_sheet_weight")
+                    if db_sh_wt:
+                        std_sheet_wt = float(db_sh_wt)
+                except Exception:
+                    pass
             length_qty = round(tot_wt / std_sheet_wt, 3) if std_sheet_wt > 0 else round(tot_wt, 2)
             unit = "No"
             gen_desc = f"{moc} SHEET {data['desc']} X {data['thk'] or ''}".strip()
