@@ -53,6 +53,19 @@ frappe.ui.form.on('Design BOM Compiler', {
                     );
                 }, __('Actions'));
             }
+
+            // Always available in Actions: Setup / Verify Item Custom Fields
+            frm.add_custom_button(__('Setup Item Custom Fields'), function() {
+                frm.call({
+                    method: 'setup_item_custom_fields',
+                    doc: frm.doc,
+                    freeze: true,
+                    freeze_message: __('Verifying and configuring custom fields on Item Master...'),
+                    callback: function(r) {
+                        frappe.msgprint(__('Custom fields configured on Item DocType! Please refresh your Item form.'));
+                    }
+                });
+            }, __('Actions'));
         }
     }
 });

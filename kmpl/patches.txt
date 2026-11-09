@@ -1,1 +1,2 @@
 kmpl.patches.v1_0.populate_initial_masters
+kmpl.patches.v1_0.add_item_custom_fields

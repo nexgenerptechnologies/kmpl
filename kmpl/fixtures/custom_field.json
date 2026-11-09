@@ -1,0 +1,84 @@
+[
+  {
+    "collapsible": 0,
+    "doctype": "Custom Field",
+    "dt": "Item",
+    "fieldname": "custom_kmpl_section",
+    "fieldtype": "Section Break",
+    "insert_after": "brand",
+    "label": "KMPL Design & RM Specifications",
+    "name": "Item-custom_kmpl_section"
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Item",
+    "fieldname": "custom_rm_type",
+    "fieldtype": "Select",
+    "in_list_view": 1,
+    "in_standard_filter": 1,
+    "insert_after": "custom_kmpl_section",
+    "label": "Type of RM",
+    "name": "Item-custom_rm_type",
+    "options": "Raw Material-PLATE\nRaw Material-SQ PIPE\nRaw Material-REC PIPE\nRaw Material-PIPE\nRaw Material-ISA ANGLE\nRaw Material-ROD\nRaw Material-SQ BAR\nRaw Material-REC BAR\nRaw Material-FLAT\nRaw Material-CIRCLE\nRaw Material-BLOCK\nRaw Material-FASTENER\nRaw Material-BOP"
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Item",
+    "fieldname": "custom_thickness_size",
+    "fieldtype": "Data",
+    "in_list_view": 1,
+    "insert_after": "custom_rm_type",
+    "label": "Thickness / Size (mm)",
+    "name": "Item-custom_thickness_size"
+  },
+  {
+    "default": "AISI 304",
+    "doctype": "Custom Field",
+    "dt": "Item",
+    "fieldname": "custom_moc",
+    "fieldtype": "Data",
+    "insert_after": "custom_thickness_size",
+    "label": "MOC",
+    "name": "Item-custom_moc"
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Item",
+    "fieldname": "custom_kmpl_col_break",
+    "fieldtype": "Column Break",
+    "insert_after": "custom_moc",
+    "name": "Item-custom_kmpl_col_break"
+  },
+  {
+    "description": "Used to calculate full sheets needed (Total Weight / Full Sheet Wt)",
+    "doctype": "Custom Field",
+    "dt": "Item",
+    "fieldname": "custom_full_sheet_weight",
+    "fieldtype": "Float",
+    "insert_after": "custom_kmpl_col_break",
+    "label": "Full Sheet Standard Weight (kg)",
+    "name": "Item-custom_full_sheet_weight",
+    "precision": "2"
+  },
+  {
+    "description": "Used to calculate weights and procurement meters for pipes, angles, rods",
+    "doctype": "Custom Field",
+    "dt": "Item",
+    "fieldname": "custom_weight_per_meter",
+    "fieldtype": "Float",
+    "insert_after": "custom_full_sheet_weight",
+    "label": "Weight per Meter (kg/m)",
+    "name": "Item-custom_weight_per_meter",
+    "precision": "3"
+  },
+  {
+    "description": "SolidWorks description pattern / alias used for auto-matching",
+    "doctype": "Custom Field",
+    "dt": "Item",
+    "fieldname": "custom_design_pattern",
+    "fieldtype": "Small Text",
+    "insert_after": "custom_weight_per_meter",
+    "label": "Design Description Pattern",
+    "name": "Item-custom_design_pattern"
+  }
+]

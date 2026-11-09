@@ -5,6 +5,26 @@ app_description = "KMPL SolidWorks Design BOM Compiler and ERPNext v16 Integrati
 app_email = "info@nexgenerptechnologies.com"
 app_license = "mit"
 
+# Fixtures to sync custom fields during migrate
+fixtures = [
+    {
+        "dt": "Custom Field",
+        "filters": [
+            ["dt", "=", "Item"],
+            ["fieldname", "in", [
+                "custom_kmpl_section",
+                "custom_rm_type",
+                "custom_thickness_size",
+                "custom_moc",
+                "custom_kmpl_col_break",
+                "custom_full_sheet_weight",
+                "custom_weight_per_meter",
+                "custom_design_pattern"
+            ]]
+        ]
+    }
+]
+
 # Custom fields added directly to standard ERPNext Item Master
 custom_fields = {
     "Item": [
@@ -12,7 +32,7 @@ custom_fields = {
             "fieldname": "custom_kmpl_section",
             "label": "KMPL Design & RM Specifications",
             "fieldtype": "Section Break",
-            "insert_after": "description",
+            "insert_after": "brand",
             "collapsible": 0
         },
         {

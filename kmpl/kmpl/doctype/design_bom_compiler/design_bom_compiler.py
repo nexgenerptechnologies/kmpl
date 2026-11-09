@@ -198,3 +198,13 @@ class DesignBOMCompiler(Document):
         self.save()
         frappe.msgprint(f"ERPNext BOM <b>{bom_doc.name}</b> created successfully!")
         return bom_doc.name
+
+    @frappe.whitelist()
+    def setup_item_custom_fields(self):
+        """
+        Manually triggers the creation of KMPL custom fields on Item master directly from the UI.
+        """
+        from kmpl.patches.v1_0.add_item_custom_fields import execute as setup_fields
+        setup_fields()
+        frappe.msgprint("KMPL Custom Fields verified and created on Item DocType! Please reload your Item page.")
+        return True
