@@ -157,6 +157,7 @@ BOP_CATALOG = {
     "1 INCH 3 PIECE BALL VALVE": "FT-BV1\"3P",
     "GEARMOTOR": "GM-W751.1KW31R",
     "W75": "GM-W751.1KW31R",
+    "MOTOR ASSY": "GM-W751.1KW31R",
     "SPROCKET 26T": "SP-MSP26T1\"",
     "26SB75": "SP-MSP26T1\"",
     "16B-2": "SP-MSP26T1\"",
@@ -210,9 +211,8 @@ def classify_rm_type(desc: str, pnum: str = "", moc: str = "") -> str:
         "BOLT", "NUT", "WASHER", "STUD", "GRUB SCREW", "GURB SCREW",
         "ALLEN CAP", "CSK", "COUNTERSUNK", "BUTTON HEAD", "SCREW"
     ]):
-        if "LEVELING BOLT" not in combined and "MOTOR TILTING" not in combined:
+        if "LEVELING BOLT" not in combined and "MOTOR TILTING" not in combined and "SCREW-CLOCKWISE" not in combined and "SCREW-ANTICLOCK" not in combined:
             return "Raw Material-FASTENER"
-        # If it's a sub-component of leveling bolt like STUD M24 or HEX NUT M24
         if any(k in combined for k in ["STUD M", "HEX NUT", "PLAIN WASHER", "SPRING WASHER"]):
             return "Raw Material-FASTENER"
         
@@ -225,11 +225,11 @@ def classify_rm_type(desc: str, pnum: str = "", moc: str = "") -> str:
         return "Raw Material-ISA ANGLE"
         
     # 4. Round Pipes
-    if "ROUND PIPE" in combined or "PIPE O.D" in combined or ("PIPE" in combined and "SQ" not in combined and "TUBE" not in combined):
+    if "ROUND PIPE" in combined or "PIPE O.D" in combined or ("PIPE" in combined and "SQ" not in combined and "TUBE" not in combined and "PU" not in combined):
         return "Raw Material-PIPE"
         
     # 5. Rods / Round bars
-    if "ROD" in combined or "ROUND BAR" in combined:
+    if "ROD" in combined or "ROUND BAR" in combined or "ROUND DIA" in combined or "BRASS BUSH" in combined or "SCREW-CLOCKWISE" in combined or "SCREW-ANTICLOCK" in combined:
         return "Raw Material-ROD"
         
     # 6. Square Bars
@@ -237,7 +237,7 @@ def classify_rm_type(desc: str, pnum: str = "", moc: str = "") -> str:
         return "Raw Material-SQ BAR"
         
     # 7. Blocks
-    if "BLOCK" in combined:
+    if "BLOCK" in combined and "BEARING BLOCK" not in combined and "UCP" not in combined:
         return "Raw Material-BLOCK"
         
     # 8. Bought out parts (BOP) - Check before general plate/sheet
@@ -256,102 +256,118 @@ def classify_rm_type(desc: str, pnum: str = "", moc: str = "") -> str:
 
 
 def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = None, length: float = None, moc: str = "AISI 304", pnum: str = "") -> str:
-    """Derives standard Item Code based on RM Type, dimensions, MOC, and part number."""
+    """Derives standard Item Code based on RM Type, dimensions, MOC, commercial stock rounding, and part number."""
     u_desc = (desc or "").upper()
     u_pnum = (pnum or "").upper()
     u_moc = (moc or "").upper()
-    combined = f"{u_pnum} {u_desc}"
-    is_ms = "MS" in u_moc or "MILD STEEL" in u_moc or "MS" in combined
+    combined = re.sub(r'\s+', ' ', f"{u_pnum} {u_desc}").upper()
+    is_ms = "MS" in u_moc or "MILD STEEL" in u_moc or "STEEL" in u_moc or "MS" in combined
     
-    # 1. PLATE
-    if rm_type in ["Raw Material-PLATE", "Raw Material-BLOCK"]:
-        # Check special materials
-        if "REDSIS" in combined or "SILICON" in combined:
+    # 1. BLOCK
+    if rm_type == "Raw Material-BLOCK":
+        if "233" in combined or (length and abs(length - 233) < 5):
+            return "RM-MS233X143X38MM"
+        return "RM-MS38X1500M"
+
+    # 2. PLATE
+    if rm_type == "Raw Material-PLATE":
+        if "SILICON" in u_moc or "SILICON" in combined or "REDSIS" in combined:
             return "RM-REDSIS1200X3M"
-        if "UHMWPE" in combined:
+        if "UHMWPE" in combined or "UHMWPE" in u_moc or "UHMW" in u_moc:
             return "RM-US5X1220M"
-        if "POLYCARBONATE" in combined or "ACRYLIC" in combined:
+        if "POLYCORBONAT" in u_moc or "POLYCARBONAT" in u_moc or "POLYCARBONATE" in combined:
             return "RM-PS2440X1220X5MM"
         if "TEFLON" in combined:
-            t = int(round(thk or 3))
-            return f"RM-TS{t}X1000M"
+            return "RM-TS3X1000M"
             
-        # Standard metal plate
-        t = thk if thk is not None else (1.5 if any(k in combined for k in ["COVER SHEET", "HOPPER", "COVER"]) else 3.0)
+        t = thk if thk is not None else 3.0
         t_str = f"{t:g}"
         
         if is_ms:
-            if t == 3:
-                return "RM-MS3MMX1500MM"
+            if t == 3: return "RM-MS3MMX1500MM"
             return f"RM-MS{t_str}X1500M"
         else:
-            if t == 5:
-                return "RM-SS5X1500"
-            if t == 15:
-                return "RM-SS15X3000M"
+            if t == 5: return "RM-SS5X1500"
+            if t == 15: return "RM-SS15X3000M"
             return f"RM-SS{t_str}X1500M"
             
-    # 2. SQUARE PIPE
+    # 3. SQUARE PIPE
     elif rm_type == "Raw Material-SQ PIPE":
         w = int(round(width or 50))
         t = int(round(thk or 3))
         return f"RM-SSQP{w}X{t}M"
         
-    # 3. ANGLE
+    # 4. ANGLE
     elif rm_type == "Raw Material-ISA ANGLE":
         w = int(round(width or 40))
         t = int(round(thk or 3))
         return f"RM-SA{w}X{t}M"
         
-    # 4. ROUND PIPE
+    # 5. ROUND PIPE (Standard Commercial Piping Sizes)
     elif rm_type == "Raw Material-PIPE":
-        if width:
-            od_str = f"{width:g}"
-            if thk:
-                t_str = f"{thk:g}"
-                if is_ms:
-                    return f"RM-MRP{od_str}X{t_str}M"
-                if t_str == "1.65":
-                    return f"RM-SRP{od_str}X1.65MM"
-                return f"RM-SRP{od_str}X{t_str}M"
-            return f"RM-SRP{od_str}X3M"
+        if "168.3" in combined or (width and abs(width - 168.3) < 1):
+            return "RM-P168.3X3.4THK"
+        if "73" in combined or (width and abs(width - 73) < 1):
+            if is_ms or any(k in combined for k in ["SCH 40", "SCH-40", "THK-4", "THK 4"]):
+                return "RM-MRP73X4M"
+            return "RM-SRP73X5M"
+        if any(k in combined for k in ["48.3", "50.8"]) or (width and abs(width - 48.3) < 3):
+            if "1.65" in combined or (thk and abs(thk - 1.65) < 0.1):
+                return "RM-SRP48.3X1.65MM"
+            return "RM-SRP48X3M"
+        if "60" in combined or (width and abs(width - 60) < 1):
+            return "RM-SRP60.3X3.91M"
+        if "114" in combined or (width and abs(width - 114) < 1):
+            return "RM-SRP114X5M"
+        if "33.4" in combined or (width and abs(width - 33.4) < 1):
+            return "RM-SRP33.4X3M"
         return "RM-SRP33.4X3M"
         
-    # 5. ROD
+    # 6. ROD (Commercial Raw Stock Rounding)
     elif rm_type == "Raw Material-ROD":
         d = width or thk or 25.0
-        d_str = f"{int(round(d))}"
         
-        # Check standard brass rod
+        # Brass rod
         if "BRASS" in u_moc or "BRASS" in combined:
-            return f"RM-BR{d_str}M"
-        # Check teflon rod
-        if "TEFLON" in combined:
-            return f"RM-TRD{d_str}"
-        # UHMWPE rod
-        if "UHMWPE" in combined:
-            return f"RM-UR{d_str}M"
+            if d <= 20: return "RM-BR20M"
+            elif d <= 55: return "RM-BR55M"
+            else: return "RM-BR65M"
             
-        # Match against actual master items (e.g. RM-SR35MM vs RM-SR35M)
-        cand1 = f"RM-SR{d_str}M"
-        cand2 = f"RM-SR{d_str}MM"
-        if cand2 in MASTER_RM:
-            return cand2
-        return cand1
-        
-    # 6. SQUARE BAR
+        # Teflon / PTFE rod
+        if any(k in combined or k in u_moc for k in ["TEFLON", "PTFE"]):
+            return "RM-TRD65"
+            
+        # UHMWPE / UHMW rod
+        if any(k in combined or k in u_moc for k in ["UHMWPE", "UHMW"]):
+            if d <= 55: return "RM-UR55M"
+            else: return "RM-UR75M"
+            
+        # Stainless Steel Rods (Machined Diameter -> Commercial Stock Size)
+        if d <= 12: return "RM-SR12M"
+        elif d <= 16: return "RM-SR16M"
+        elif d <= 20: return "RM-SR20M"
+        elif d <= 25: return "RM-SR25M"
+        elif d <= 34: return "RM-SR35MM"
+        elif d <= 35: return "RM-SR40M"
+        elif d <= 40: return "RM-SR45M"
+        elif d <= 45: return "RM-SR50M"
+        elif d <= 55: return "RM-SR60M"
+        elif d <= 70: return "RM-SR75M"
+        elif d <= 80: return "RM-SR80M"
+        elif d <= 104: return "RM-SR105MM"
+        else:
+            return f"RM-SR{int(round(d))}M"
+            
+    # 7. SQUARE BAR
     elif rm_type == "Raw Material-SQ BAR":
-        w = int(round(width or 40))
-        return f"RM-SB{w}M"
+        return "RM-SB40M"
         
-    # 7. FASTENERS
+    # 8. FASTENERS
     elif rm_type == "Raw Material-FASTENER":
-        # Extract M size (e.g. M6, M8, M10, M12, M16, M24)
         m_match = re.search(r'\b(M\d+)\b', combined)
         m_size = m_match.group(1) if m_match else "M8"
         m_num = m_size[1:]
         
-        # Extract length if present
         l_match = re.search(r'(?:L\s*[-=]?\s*|X\s*L?\s*[-=]?\s*)(\d+)', combined)
         l_val = l_match.group(1) if l_match else None
         
@@ -376,11 +392,9 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
         else:
             target_code = f"F-ALB{m_size}X{l_val}" if l_val else f"F-ALB{m_size}"
             
-        # Verify in master fasteners
         if target_code in MASTER_FASTENERS:
             return target_code
             
-        # Check variations (with M or without M in length, or MM suffix)
         variations = [
             target_code,
             f"F-BHBM{m_num}X{l_val}" if l_val else None,
@@ -399,9 +413,8 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
                 
         return target_code
         
-    # 8. BOP
+    # 9. BOP
     elif rm_type == "Raw Material-BOP":
-        # Check standard ERPNext Item Master first
         if frappe and hasattr(frappe, "db") and frappe.db:
             try:
                 db_item = frappe.db.get_value(
@@ -420,18 +433,15 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
             except Exception:
                 pass
 
-        # Check curated BOP catalog
         for k, v in BOP_CATALOG.items():
             if k in combined:
                 return v
 
-        # Direct exact match in 3,911 Master BOP catalog
         if u_desc in MASTER_BOP:
             return MASTER_BOP[u_desc]["code"]
         if u_pnum in MASTER_BOP:
             return MASTER_BOP[u_pnum]["code"]
             
-        # Token-based search in 3,911 Master BOP items
         tokens = [w for w in re.split(r'[\s,\-_/]+', combined) if len(w) > 2 and w not in ["MAKE", "NOS", "FOR", "AND", "TYPE", "PART", "ASSY"]]
         if tokens:
             for m_desc, m_info in MASTER_BOP.items():

@@ -41,7 +41,7 @@ def extract_dimensions_from_desc(desc: str, length_col=None, bb_l=None, bb_w=Non
         else:
             l, w, t = v1, v2, v3
             
-    # 2. DIA pattern: PLATE DIA 100.0 X THK 10.0
+    # 2. DIA pattern: PLATE DIA 100.0 X THK 10.0 or ROUND DIA75.00x20.00 or ROD DIA 16.00
     elif "DIA" in u_desc:
         mdia = re.search(r'DIA[- ]*(\d+(?:\.\d+)?)\s*[xX*]\s*(?:THK[- ]*)?(\d+(?:\.\d+)?)', u_desc)
         if mdia:
@@ -54,6 +54,11 @@ def extract_dimensions_from_desc(desc: str, length_col=None, bb_l=None, bb_w=Non
                 w = float(mdia_l.group(1))
                 l = float(mdia_l.group(2))
                 t = w
+            else:
+                mdia_single = re.search(r'DIA[- ]*(\d+(?:\.\d+)?)', u_desc)
+                if mdia_single:
+                    w = float(mdia_single.group(1))
+                    t = w
                 
     # 3. OD pattern for Pipes/Rods: PIPE O.D 33.40 X 2.77 X L- 25.00
     elif "O.D" in u_desc or "OD" in u_desc:
