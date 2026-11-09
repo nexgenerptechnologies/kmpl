@@ -50,27 +50,32 @@ DEFAULT_SHEET_WEIGHTS = {
     "RM-SS8X1500M": 289.08,
     "RM-SS10X1500M": 361.35,
     "RM-SS12X1500M": 433.62,
+    "RM-SS14X1500M": 505.89,
     "RM-SS15X3000M": 542.03,
     "RM-SS16X1500M": 578.16,
     "RM-SS20X1500M": 722.70,
     "RM-SS25X1500M": 903.38,
+    "RM-SS28X1500M": 1011.78,
+    "RM-SS30X1500M": 1084.05,
+    "RM-SS32X1500M": 1156.32,
+    "RM-SS35X1500M": 1264.73,
+    "RM-SS40X1500M": 1445.40,
+    "RM-SS45X1500M": 1626.08,
+    "RM-SS50X1500M": 1806.75,
     "RM-MS3MMX1500MM": 105.98,
     "RM-MS8X1500M": 282.60,
     "RM-MS10X1500M": 353.25,
     "RM-MS12X1500M": 423.90,
     "RM-MS15X1500M": 529.88,
+    "RM-MS16X1500M": 565.20,
     "RM-MS20X1500M": 706.50,
     "RM-MS25X1500M": 883.13,
-    "RM-REDSIS1200X3M": 8.93,
-    "RM-US5X1220M": 14.88,
-    "RM-PS2440X1220X5MM": 14.88,
-    "RM-TS2X1000M": 4.40,
-    "RM-TS3X1000M": 6.60,
-    "RM-TS5X1000M": 11.00
+    "RM-MS38X1500M": 1342.35,
+    "RM-REDSIS1200X3M": 10.98,
+    "RM-US5X1220M": 14.13,
+    "RM-PS2440X1220X5MM": 17.86,
+    "RM-TS3X1000M": 6.60
 }
-for k, v in DEFAULT_SHEET_WEIGHTS.items():
-    if k not in STD_SHEET_WEIGHTS:
-        STD_SHEET_WEIGHTS[k] = v
 
 # Standard weights per meter (kg/m) for profile items
 WEIGHT_PER_METER = {
@@ -118,7 +123,7 @@ WEIGHT_PER_METER = {
     "RM-SB40M": 12.85
 }
 
-# Known BOP dictionary mapping normalized search strings to Item Codes
+# Direct lookup dictionary for known BOP items
 BOP_CATALOG = {
     "CASTOR WHEEL": "HW-TWWB42140K",
     "CASTOR WHEEL WITH BRAKE": "HW-TWWB42140K",
@@ -126,38 +131,71 @@ BOP_CATALOG = {
     "KARMIC 4 INCH": "HW-TWWB42140K",
     "GLAND PG11": "ECO-CAGLANDPG11",
     "GLAND PG16": "ECO-CAGLANDPG16",
+    "PG 11": "ECO-CAGLANDPG11",
+    "PG 16": "ECO-CAGLANDPG16",
     "CABLE GLAND PG11": "ECO-CAGLANDPG11",
     "CABLE GLAND PG16": "ECO-CAGLANDPG16",
-    "BEARING 33108": "BE-TR33108",
-    "BEARING 33207": "BE-TR33207",
-    "BEARING UCP 206": "BE-CP206NT",
-    "BEARING UCP 209": "BE-CP209NT",
-    "BEARING KM7": "BE-KM7",
+    "33108": "BE-TR33108",
+    "33207": "BE-TR33207",
+    "UCP 206": "BE-CP206NT",
+    "UCP 209": "BE-CP209NT",
+    "KM 7": "BE-KM7",
+    "KM7": "BE-KM7",
+    "MB 7": "F-BELOCKNUTMB7",
+    "MB7": "F-BELOCKNUTMB7",
     "LOCK NUT MB7": "F-BELOCKNUTMB7",
-    "OIL SEAL 45X75X10": "RB-S45X75X10HMS5RG",
-    "OIL SEAL 45X55X7": "RB-S45X55X7HMS5RG",
-    "OIL SEAL 33X50X6": "RB-S33X50X6M",
+    "LOCKING DEVICE": "F-BELOCKNUTMB7",
+    "45X75X10": "RB-S45X75X10HMS5RG",
+    "45X55X7": "RB-S45X55X7HMS5RG",
+    "33X50X6": "RB-S33X50X6M",
+    "100X120X10": "RB-S100X120X10HMS5RG",
     "RUBBER GASKET 1/4 BSP": "RB-1/4\"BSP",
+    "OIL LEVEL INDICATOR": "RB-1/4\"BSP",
     "BALL VALVE 1-1/2": "V-BV1-1/2\"3PC",
+    "1.5 INCH 3 PIECE BALL VALVE": "V-BV1-1/2\"3PC",
     "BALL VALVE 1": "FT-BV1\"3P",
+    "1 INCH 3 PIECE BALL VALVE": "FT-BV1\"3P",
     "GEARMOTOR": "GM-W751.1KW31R",
+    "W75": "GM-W751.1KW31R",
     "SPROCKET 26T": "SP-MSP26T1\"",
+    "26SB75": "SP-MSP26T1\"",
+    "16B-2": "SP-MSP26T1\"",
     "SPROCKET 13T": "SP-MSDS13TP1I",
     "SPROCKET 20T": "SP-MSDST20X15.87P",
+    "PRT_2526_01_01_044": "SP-MSDST20X15.87P",
+    "PRT_2526_01_01_043": "SP-MSDST20X15.87P",
     "PUMP": "PU-VLCLASSIV-XI-2-0223087",
+    "PIAB": "PU-VLCLASSIV-XI-2-0223087",
     "PRESSURE GAUGE": "PN-GAUGE100MMD0.5",
+    "PRESSURE GUAGE": "PN-GAUGE100MMD0.5",
     "FILTER REGULATOR AW4004": "PN-AW4004BG01",
+    "AW40": "PN-AW4004BG01",
+    "AIR REGULATOR": "PN-AW4004BG01",
     "LUBRICATOR AFJ4004": "PN-AFJ4004B5T",
+    "AFJ40": "PN-AFJ4004B5T",
+    "AIR FILTER": "PN-AFJ4004B5T",
     "FITTING KQ2H": "PN-KQ2H1204AS",
+    "KQ2H": "PN-KQ2H1204AS",
     "PU PIPE 12": "PN-PP12M",
+    "PU PIPE": "PN-PP12M",
+    "PU PNEUMATIC PIPE": "PN-PP12M",
     "PVC HOSE 1": "H-PBFP01\"",
+    "FLEXIBLE PIPE": "H-PBFP01\"",
     "HOSE CLAMP 1": "FT-HCLAMP1\"",
+    "HOSE AND TUBE CLAMP": "FT-HCLAMP1\"",
     "LONG RADIUS BEND 33.4": "FT-LRB33.4",
-    "BEND 101.6": "FT-B101.6X2.1TH",
+    "LRB 90D 1\"": "FT-LRB33.4",
+    "45D LONG RADIUS BEND O.D 33.4": "FT-LRB33.4",
+    "90D LONG RADIUS BEND O.D 33.4": "FT-LRB33.4",
+    "90D BEND OD 101.6": "FT-B101.6X2.1TH",
+    "BEND OD 101.6": "FT-B101.6X2.1TH",
+    "SMS UNION 101": "FT-SUM101.6M",
     "SUM PIPE 101.6": "FT-SUM101.6M",
     "CAP SEAL 30": "CAP-MSEAL30MM",
     "CAP SEAL 45": "CAP-MSEAL45MM",
-    "DUST CAP": "SF-DC1"
+    "MECHANICAL SEAL": "CAP-MSEAL30MM",
+    "DUPLEX CHAIN": "SF-DC1",
+    "1\" PITCH DUPLEX CHAIN": "SF-DC1"
 }
 
 
@@ -165,71 +203,81 @@ def classify_rm_type(desc: str, pnum: str = "", moc: str = "") -> str:
     """Classifies a SolidWorks item into a standard Type of RM."""
     u_desc = (desc or "").upper()
     u_pnum = (pnum or "").upper()
+    combined = f"{u_pnum} {u_desc}"
     
     # 1. Fasteners
-    if any(k in u_desc for k in ["BOLT", "NUT", "WASHER", "STUD", "GRUB SCREW", "ALLEN CAP", "CSK", "SCREW"]):
-        if "LEVELING BOLT" not in u_desc and "MOTOR TILTING" not in u_desc:
+    if any(k in combined for k in [
+        "BOLT", "NUT", "WASHER", "STUD", "GRUB SCREW", "GURB SCREW",
+        "ALLEN CAP", "CSK", "COUNTERSUNK", "BUTTON HEAD", "SCREW"
+    ]):
+        if "LEVELING BOLT" not in combined and "MOTOR TILTING" not in combined:
+            return "Raw Material-FASTENER"
+        # If it's a sub-component of leveling bolt like STUD M24 or HEX NUT M24
+        if any(k in combined for k in ["STUD M", "HEX NUT", "PLAIN WASHER", "SPRING WASHER"]):
             return "Raw Material-FASTENER"
         
     # 2. Square pipes
-    if "TUBE, SQUARE" in u_desc or "SQ. PIPE" in u_desc or "SQUARE TUBE" in u_desc or "SQ PIPE" in u_desc:
+    if any(k in combined for k in ["TUBE, SQUARE", "SQ. PIPE", "SQUARE TUBE", "SQ PIPE"]):
         return "Raw Material-SQ PIPE"
         
     # 3. Angle
-    if "ANGLE" in u_desc or "ISA ANGLE" in u_desc:
+    if "ANGLE" in combined or "ISA ANGLE" in combined:
         return "Raw Material-ISA ANGLE"
         
     # 4. Round Pipes
-    if "ROUND PIPE" in u_desc or "PIPE O.D" in u_desc or ("PIPE" in u_desc and "SQ" not in u_desc and "TUBE" not in u_desc):
+    if "ROUND PIPE" in combined or "PIPE O.D" in combined or ("PIPE" in combined and "SQ" not in combined and "TUBE" not in combined):
         return "Raw Material-PIPE"
         
     # 5. Rods / Round bars
-    if "ROD" in u_desc or "ROUND BAR" in u_desc:
+    if "ROD" in combined or "ROUND BAR" in combined:
         return "Raw Material-ROD"
         
     # 6. Square Bars
-    if "SQ. BAR" in u_desc or "SQUARE BAR" in u_desc:
+    if "SQ. BAR" in combined or "SQUARE BAR" in combined:
         return "Raw Material-SQ BAR"
         
     # 7. Blocks
-    if "BLOCK" in u_desc:
+    if "BLOCK" in combined:
         return "Raw Material-BLOCK"
         
-    # 8. Plates and sheets
-    if any(k in u_desc for k in ["PLATE", "SHEET", "CHECKER SHEET", "END PLATE", "FLANGE", "COVER"]):
-        return "Raw Material-PLATE"
+    # 8. Bought out parts (BOP) - Check before general plate/sheet
+    if any(k in combined for k in [
+        "BEARING", "CASTOR", "GLAND", "VALVE", "SPROCKET", "MOTOR", "PUMP",
+        "GAUGE", "GUAGE", "SEAL", "HOSE", "BEND", "UNION", "CLAMP", "CHAIN",
+        "FILTER", "REGULATOR", "LUBRICATOR", "LOCKING DEVICE", "LOCK WASHER", "LOCK NUT"
+    ]):
+        return "Raw Material-BOP"
         
-    # 9. Bought out parts (BOP)
-    if any(k in u_desc for k in ["BEARING", "CASTOR", "GLAND", "VALVE", "SPROCKET", "MOTOR", "PUMP", "GAUGE", "SEAL", "HOSE"]):
-        return "Raw Material-BOP"
-    if any(k in u_pnum for k in ["CASTOR", "GLAND", "VALVE", "BEARING"]):
-        return "Raw Material-BOP"
+    # 9. Plates and sheets
+    if any(k in combined for k in ["PLATE", "SHEET", "CHECKER SHEET", "END PLATE", "FLANGE", "COVER", "HOPPER"]):
+        return "Raw Material-PLATE"
         
     return "Raw Material-PLATE"
 
 
-def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = None, length: float = None, moc: str = "AISI 304") -> str:
-    """Derives standard Item Code based on RM Type, dimensions, and MOC."""
+def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = None, length: float = None, moc: str = "AISI 304", pnum: str = "") -> str:
+    """Derives standard Item Code based on RM Type, dimensions, MOC, and part number."""
     u_desc = (desc or "").upper()
+    u_pnum = (pnum or "").upper()
     u_moc = (moc or "").upper()
-    is_ms = "MS" in u_moc or "MILD STEEL" in u_moc or "MS" in u_desc
+    combined = f"{u_pnum} {u_desc}"
+    is_ms = "MS" in u_moc or "MILD STEEL" in u_moc or "MS" in combined
     
     # 1. PLATE
     if rm_type in ["Raw Material-PLATE", "Raw Material-BLOCK"]:
         # Check special materials
-        if "REDSIS" in u_desc or "SILICON" in u_desc:
+        if "REDSIS" in combined or "SILICON" in combined:
             return "RM-REDSIS1200X3M"
-        if "UHMWPE" in u_desc:
+        if "UHMWPE" in combined:
             return "RM-US5X1220M"
-        if "POLYCARBONATE" in u_desc or "ACRYLIC" in u_desc:
+        if "POLYCARBONATE" in combined or "ACRYLIC" in combined:
             return "RM-PS2440X1220X5MM"
-        if "TEFLON" in u_desc:
+        if "TEFLON" in combined:
             t = int(round(thk or 3))
             return f"RM-TS{t}X1000M"
             
         # Standard metal plate
-        t = thk if thk is not None else 3.0
-        # Format thickness string
+        t = thk if thk is not None else (1.5 if any(k in combined for k in ["COVER SHEET", "HOPPER", "COVER"]) else 3.0)
         t_str = f"{t:g}"
         
         if is_ms:
@@ -269,61 +317,86 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
             return f"RM-SRP{od_str}X3M"
         return "RM-SRP33.4X3M"
         
-    # 5. ROD (Round Bar)
+    # 5. ROD
     elif rm_type == "Raw Material-ROD":
-        dia = int(round(thk or width or 25))
-        if "BRONZE" in u_desc or "BR" in u_desc:
-            return f"RM-BR{dia}M"
-        if "TEFLON" in u_desc:
-            return f"RM-TRD{dia}"
-        if "UHMWPE" in u_desc:
-            return f"RM-UR{dia}M"
-        if dia == 35 or dia == 30:
-            return "RM-SR35MM"
-        if dia == 105:
-            return "RM-SR105MM"
-        return f"RM-SR{dia}M"
+        d = width or thk or 25.0
+        d_str = f"{int(round(d))}"
+        
+        # Check standard brass rod
+        if "BRASS" in u_moc or "BRASS" in combined:
+            return f"RM-BR{d_str}M"
+        # Check teflon rod
+        if "TEFLON" in combined:
+            return f"RM-TRD{d_str}"
+        # UHMWPE rod
+        if "UHMWPE" in combined:
+            return f"RM-UR{d_str}M"
+            
+        # Match against actual master items (e.g. RM-SR35MM vs RM-SR35M)
+        cand1 = f"RM-SR{d_str}M"
+        cand2 = f"RM-SR{d_str}MM"
+        if cand2 in MASTER_RM:
+            return cand2
+        return cand1
         
     # 6. SQUARE BAR
     elif rm_type == "Raw Material-SQ BAR":
         w = int(round(width or 40))
         return f"RM-SB{w}M"
         
-    # 7. FASTENER
+    # 7. FASTENERS
     elif rm_type == "Raw Material-FASTENER":
-        # Extract thread size
-        m_match = re.search(r'M(\d+)', u_desc)
-        m_size = f"M{m_match.group(1)}" if m_match else "M6"
+        # Extract M size (e.g. M6, M8, M10, M12, M16, M24)
+        m_match = re.search(r'\b(M\d+)\b', combined)
+        m_size = m_match.group(1) if m_match else "M8"
+        m_num = m_size[1:]
         
-        # Extract length if bolt or stud
-        l_match = re.search(r'[X\s](\d+)(?:MM|L|$)', u_desc)
-        l_val = l_match.group(1) if l_match else ""
+        # Extract length if present
+        l_match = re.search(r'(?:L\s*[-=]?\s*|X\s*L?\s*[-=]?\s*)(\d+)', combined)
+        l_val = l_match.group(1) if l_match else None
         
-        target_code = ""
-        if "STUD" in u_desc or "THREADED" in u_desc:
-            target_code = f"F-ST{m_size}"
-        elif "NUT" in u_desc:
+        target_code = None
+        
+        if "NUT" in combined:
             target_code = f"F-HN{m_size}"
-        elif "SPRING WASHER" in u_desc:
+        elif "SPRING WASHER" in combined or "SWM" in combined:
             target_code = f"F-SW{m_size}"
-        elif "WASHER" in u_desc:
+        elif "WASHER" in combined or "PWM" in combined:
             target_code = f"F-PW{m_size}"
-        elif "CSK" in u_desc:
-            target_code = f"F-ALCSKB{m_size[1:]}X{l_val}MM" if l_val else f"F-ALCSKB{m_size}"
-        elif "HEX" in u_desc:
+        elif "STUD" in combined:
+            target_code = f"F-ST{m_size}"
+        elif any(k in combined for k in ["CSK", "COUNTERSUNK"]):
+            target_code = f"F-ALCSKB{m_num}X{l_val}" if l_val else f"F-ALCSKB{m_num}"
+        elif any(k in combined for k in ["BUTTON HEAD", "BHB"]):
+            target_code = f"F-BHB{m_num}X{l_val}" if l_val else f"F-BHB{m_size}"
+        elif any(k in combined for k in ["GRUB", "GURB"]):
+            target_code = f"F-GS{m_num}X{l_val}" if l_val else f"F-GS{m_num}"
+        elif "HEX" in combined:
             target_code = f"F-HB{m_size}X{l_val}" if l_val else f"F-HB{m_size}"
-        elif "GRUB" in u_desc:
-            target_code = f"F-GS{m_size[1:]}X{l_val}" if l_val else f"F-GS{m_size}"
         else:
             target_code = f"F-ALB{m_size}X{l_val}" if l_val else f"F-ALB{m_size}"
             
-        # Verify if exists in master fasteners, or find close match
+        # Verify in master fasteners
         if target_code in MASTER_FASTENERS:
             return target_code
-        # Check without MM or with MM
-        alt_code = target_code + "MM" if not target_code.endswith("MM") else target_code[:-2]
-        if alt_code in MASTER_FASTENERS:
-            return alt_code
+            
+        # Check variations (with M or without M in length, or MM suffix)
+        variations = [
+            target_code,
+            f"F-BHBM{m_num}X{l_val}" if l_val else None,
+            f"F-HBM{m_num}X{l_val}" if l_val else None,
+            f"F-HB{m_num}X{l_val}" if l_val else None,
+            f"F-ALCSKB{m_num}X{l_val}MM" if l_val else None,
+            f"F-GS{m_num}X{l_val}M" if l_val else None,
+            f"F-STM{m_num}",
+            f"F-HNM{m_num}",
+            f"F-PWM{m_num}",
+            f"F-SWM{m_num}"
+        ]
+        for var in variations:
+            if var and var in MASTER_FASTENERS:
+                return var
+                
         return target_code
         
     # 8. BOP
@@ -331,7 +404,6 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
         # Check standard ERPNext Item Master first
         if frappe and hasattr(frappe, "db") and frappe.db:
             try:
-                # 1. Check custom_design_pattern or item_name
                 db_item = frappe.db.get_value(
                     "Item",
                     {"custom_design_pattern": ["like", f"%{desc.strip()}%"], "disabled": 0},
@@ -348,27 +420,31 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
             except Exception:
                 pass
 
+        # Check curated BOP catalog
+        for k, v in BOP_CATALOG.items():
+            if k in combined:
+                return v
+
         # Direct exact match in 3,911 Master BOP catalog
         if u_desc in MASTER_BOP:
             return MASTER_BOP[u_desc]["code"]
+        if u_pnum in MASTER_BOP:
+            return MASTER_BOP[u_pnum]["code"]
             
-        # Check known BOP dictionary
-        for k, v in BOP_CATALOG.items():
-            if k in u_desc:
-                return v
-                
         # Token-based search in 3,911 Master BOP items
-        tokens = [w for w in re.split(r'[\s,\-_/]+', u_desc) if len(w) > 2 and w not in ["MAKE", "NOS", "FOR", "AND", "TYPE"]]
+        tokens = [w for w in re.split(r'[\s,\-_/]+', combined) if len(w) > 2 and w not in ["MAKE", "NOS", "FOR", "AND", "TYPE", "PART", "ASSY"]]
         if tokens:
             for m_desc, m_info in MASTER_BOP.items():
                 if all(tok in m_desc for tok in tokens):
                     return m_info["code"]
-            # Partial match with high relevance
-            for m_desc, m_info in MASTER_BOP.items():
-                match_count = sum(1 for tok in tokens if tok in m_desc)
-                if match_count >= 2 and match_count >= len(tokens) - 1:
-                    return m_info["code"]
-
+                    
         return "BOP-STD"
-
+        
     return "RM-STD"
+
+
+def get_standard_sheet_weight(item_code: str) -> float:
+    """Returns standard full sheet weight for plate item codes."""
+    if item_code in STD_SHEET_WEIGHTS:
+        return STD_SHEET_WEIGHTS[item_code]
+    return DEFAULT_SHEET_WEIGHTS.get(item_code, 108.41)
