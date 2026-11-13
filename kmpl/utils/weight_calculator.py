@@ -57,6 +57,11 @@ def calculate_item_weight(rm_type: str, length: float, width: float, thk: float,
         od = width
         area = math.pi * (od - thk) * thk
         return round(area * length * density, 5)
+
+    if rm_type == "Raw Material-SQ BAR" and length:
+        w = width or 40.0
+        t = thk or w
+        return round(w * t * length * density, 4)
         
     if rm_type == "Raw Material-FASTENER" and "STUD" in (desc or "").upper() and length:
         # Stud length in meters
@@ -100,7 +105,6 @@ def compile_summary(bom_items: list, project_no: str = "") -> list:
         
         grp = grouped[icode]
         grp["item_code"] = icode
-        grp["rm_type"] = rm_type
         grp["desc"] = desc
         grp["thk"] = thk or grp["thk"]
         grp["moc"] = moc
@@ -108,14 +112,31 @@ def compile_summary(bom_items: list, project_no: str = "") -> list:
         grp["total_qty"] += u_qty
         grp["total_length_mm"] += (l_mm * u_qty)
         
-        if rm_type in ["Raw Material-PLATE", "Raw Material-BLOCK"]:
+        is_std_plate = ((icode.startswith("RM-SS") or icode.startswith("RM-MS") or icode.startswith("RM-SCP") or icode.startswith("RM-MCS")) 
+                        and "X" in icode 
+                        and any(sz in icode for sz in ["1500", "3000", "1220", "2440"]))
+        if is_std_plate or rm_type == "Raw Material-PLATE":
+            rm_type = "Raw Material-PLATE"
             grp["is_plate"] = True
+            grp["is_profile"] = False
+            grp["is_fastener"] = False
+            grp["is_bop"] = False
+            grp["is_block"] = False
+        elif rm_type == "Raw Material-BLOCK":
+            grp["is_block"] = True
+            grp["is_plate"] = False
+            grp["is_profile"] = False
+            grp["is_fastener"] = False
+            grp["is_bop"] = False
         elif rm_type in ["Raw Material-SQ PIPE", "Raw Material-PIPE", "Raw Material-ISA ANGLE", "Raw Material-ROD", "Raw Material-SQ BAR"]:
             grp["is_profile"] = True
         elif rm_type == "Raw Material-FASTENER":
             grp["is_fastener"] = True
         else:
             grp["is_bop"] = True
+
+        if not grp["rm_type"] or rm_type in ["Raw Material-PLATE", "Raw Material-BLOCK"]:
+            grp["rm_type"] = rm_type
 
     summary_rows = []
     sr = 1
@@ -138,14 +159,19 @@ def compile_summary(bom_items: list, project_no: str = "") -> list:
             length_qty = round(tot_wt / std_sheet_wt, 3) if std_sheet_wt > 0 else round(tot_wt, 2)
             unit = "No"
             gen_desc = f"{moc} SHEET {data['desc']} X {data['thk'] or ''}".strip()
+        elif data.get("is_block"):
+            length_qty = int(round(data["total_qty"]))
+            unit = "No"
+            thk_str = f"X{data['thk']}" if data['thk'] else ""
+            gen_desc = f"{moc} BLOCK {thk_str}".strip()
         elif data["is_profile"]:
             length_qty = round(data["total_length_mm"] / 1000.0, 3)
             unit = "m"
             gen_desc = f"{moc} {data['desc']}".strip()
         elif data["is_fastener"]:
-            if "STUD" in data["desc"].upper():
+            if "STUD" in data["desc"].upper() or "F-ST" in icode:
                 length_qty = round(data["total_length_mm"] / 1000.0, 3)
-                unit = "M"
+                unit = "Mtr"
             else:
                 length_qty = int(round(data["total_qty"]))
                 unit = "No."

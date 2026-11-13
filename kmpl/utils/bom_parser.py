@@ -24,11 +24,26 @@ def extract_dimensions_from_desc(desc: str, length_col=None, bb_l=None, bb_w=Non
     Extracts (length, width, thk) from description and column fallbacks.
     Normalizes broken numbers with whitespace (e.g., 155.0 0 -> 155.00).
     """
-    u_desc = desc.upper()
+    u_desc = re.sub(r'[\r\n]+', ' ', (desc or "").upper())
     u_desc = re.sub(r'(\d+)\s*\.\s*(\d+)', r'\1.\2', u_desc)
     u_desc = re.sub(r'(\d+\.\d+)\s+(\d+)', r'\1\2', u_desc)
     
     l, w, t = None, None, None
+
+    # SQ BAR pattern: SQ. BAR 40.00 X L- 115.00 or SQ. BAR 40.00 X 115.00
+    msq = re.search(r'(?:SQ\.?\s*BAR|SQUARE\s*BAR)\s*(\d+(?:\.\d+)?)\s*[xX*]\s*(?:L\s*[-=]?\s*)?(\d+(?:\.\d+)?)', u_desc)
+    if msq:
+        sz = float(msq.group(1))
+        l_len = float(msq.group(2))
+        return l_len, sz, sz
+        
+    # STUD pattern: STUD M24.00 X L 200.00 or STUD M24 X L-200
+    if "STUD" in u_desc:
+        mstud = re.search(r'STUD\s*(?:M(\d+(?:\.\d+)?))?\s*[xX*]?\s*(?:L\s*[-=]?\s*)?(\d+(?:\.\d+)?)', u_desc)
+        if mstud:
+            thk_sz = f"M{int(float(mstud.group(1)))}" if mstud.group(1) else None
+            l_len = float(mstud.group(2)) if mstud.group(2) else None
+            return l_len, 0.0, thk_sz
     
     # 1. 3D dimension pattern: 50.00 X 50.00 X 3.00
     m3d = re.search(r'(\d+(?:\.\d+)?)\s*[xX*]\s*(\d+(?:\.\d+)?)\s*[xX*]\s*(\d+(?:\.\d+)?)', u_desc)
@@ -238,11 +253,13 @@ def parse_solidworks_bom(file_path: str, default_po_qty: float = 1.0):
             item_code = "FT-HCLAMP1\""
             desc = "Hose and Tube Clamp-1\""
             actual_dwg = "Hose and Tube Clamp"
-        elif "ROUND" in combined and "DIA" in combined:
+        elif ("ROUND" in combined and "DIA" in combined) and ("PLATE" not in combined):
             rm_type = "Raw Material-ROD"
             if "75" in combined or (w_val and abs(w_val - 75) < 2) or (t_val and abs(t_val - 75) < 2):
                 item_code = "RM-SR80M"
                 desc = "ROUND DIA75.0"
+        elif "ROUND PLATE" in combined or "PLATE DIA" in combined:
+            rm_type = "Raw Material-PLATE"
         elif "CHECKER" in combined or "CHEQUER" in combined:
             rm_type = "Raw Material-PLATE"
             item_code = "RM-SCP31220M"
@@ -273,24 +290,30 @@ def parse_solidworks_bom(file_path: str, default_po_qty: float = 1.0):
             except (ValueError, TypeError):
                 pass
         
-        # Fallback for Sheet Metal leaf parts where geometric L/W/T is blank
+        # Fallback for Sheet Metal leaf parts where geometric L/W/T is incomplete or unit_wt is 0
         if rm_type == "Raw Material-PLATE" and unit_wt <= 0:
-            sw_wt = parse_number(wt_col)
-            if sw_wt:
-                unit_wt = round(sw_wt / 1000.0, 3) # Convert grams to kg
-                u_moc = moc.upper()
-                if "SILICON" in u_moc or "SILICON" in combined:
-                    t_val = 3.0
-                    item_code = "RM-REDSIS1200X3M"
-                elif "POLYCORBONAT" in u_moc or "POLYCARBONAT" in u_moc:
-                    t_val = 5.0
-                    item_code = "RM-PS2440X1220X5MM"
-                elif any(k in combined for k in ["COVER PLATE", "TOP COVER PLATE", "SUPPORT PLATE"]):
-                    t_val = 5.0
-                    item_code = "RM-SS5X1500"
-                else:
-                    t_val = 1.5
+            if not t_val and l_val and w_val:
+                t_val = 1.5
+                if not item_code:
                     item_code = "RM-SS1.5X1500M"
+                unit_wt = calculate_item_weight(rm_type, l_val, w_val, t_val, moc, item_code, desc)
+            else:
+                sw_wt = parse_number(wt_col)
+                if sw_wt:
+                    unit_wt = round(sw_wt / 1000.0, 3) # Convert grams to kg
+                    u_moc = moc.upper()
+                    if "SILICON" in u_moc or "SILICON" in combined:
+                        t_val = 3.0
+                        item_code = "RM-REDSIS1200X3M"
+                    elif "POLYCORBONAT" in u_moc or "POLYCARBONAT" in u_moc:
+                        t_val = 5.0
+                        item_code = "RM-PS2440X1220X5MM"
+                    elif any(k in combined for k in ["COVER PLATE", "TOP COVER PLATE", "SUPPORT PLATE"]):
+                        t_val = 5.0
+                        item_code = "RM-SS5X1500"
+                    else:
+                        t_val = 1.5
+                        item_code = "RM-SS1.5X1500M"
                     
         # Remarks and Unmapped items handling
         remarks = clean_str(row[19]) if len(row) > 19 and row[19] else ""
@@ -298,13 +321,69 @@ def parse_solidworks_bom(file_path: str, default_po_qty: float = 1.0):
             item_code = ""
             remarks = "Pending Master Mapping"
             
-        # Total Weight and Units
-        if unit_wt > 0 and rm_type not in ["Raw Material-FASTENER", "Raw Material-BOP"]:
-            tot_wt = round(unit_wt * actual_qty * bom_header["po_qty"], 3)
+        # Total Weight, Dimensions, Remarks, and Units
+        if rm_type == "Raw Material-FASTENER":
+            m_sz = re.search(r'M(\d+)', f"{desc} {actual_dwg} {item_code}".upper())
+            if m_sz:
+                t_val = f"M{m_sz.group(1)}"
+                
+            if "STUD" in combined:
+                unit = "Mtr"
+                w_val = 0.0
+                if not l_val or l_val == 0:
+                    m_len = re.search(r'L\s*[-=]?\s*(\d+(?:\.\d+)?)', combined)
+                    if m_len:
+                        l_val = parse_number(m_len.group(1))
+                    elif not l_val:
+                        m_xlen = re.search(r'X\s*(\d+(?:\.\d+)?)', combined)
+                        if m_xlen:
+                            l_val = parse_number(m_xlen.group(1))
+                if l_val:
+                    unit_wt = round(l_val / 1000.0, 3)
+                    tot_wt = round(unit_wt * actual_qty * bom_header["po_qty"], 3)
+                else:
+                    tot_wt = actual_qty
+            elif "NUT" in combined:
+                l_val = None
+                w_val = None
+                unit = "No."
+                unit_wt = None
+                tot_wt = actual_qty
+                remarks = "HEX" if "HEX" in combined else ("NYLOCK" if "NYLOCK" in combined else "NUT")
+            elif "WASHER" in combined:
+                l_val = None
+                w_val = None
+                unit = "No."
+                unit_wt = None
+                tot_wt = actual_qty
+                remarks = "PLAIN" if "PLAIN" in combined else ("SPRING" if "SPRING" in combined else "WASHER")
+            elif "BOLT" in combined or "SCREW" in combined:
+                w_val = None
+                unit = "No."
+                unit_wt = None
+                tot_wt = actual_qty
+                if not l_val or l_val == 0:
+                    m_len = re.search(r'L\s*[-=]?\s*(\d+(?:\.\d+)?)', combined)
+                    if m_len:
+                        l_val = parse_number(m_len.group(1))
+                remarks = "HEX" if "HEX" in combined else ("BUTTON" if "BUTTON" in combined else ("CSK" if "CSK" in combined or "COUNTERSUNK" in combined else "BOLT"))
+        elif rm_type == "Raw Material-SQ BAR":
             unit = "Kg"
-        else:
+            if l_val and (not unit_wt or unit_wt <= 0):
+                unit_wt = calculate_item_weight(rm_type, l_val, w_val, t_val, moc, item_code, desc)
+            tot_wt = round(unit_wt * actual_qty * bom_header["po_qty"], 4) if unit_wt else actual_qty
+            remarks = l_val
+        elif rm_type == "Raw Material-BOP":
+            unit = "No."
             tot_wt = actual_qty
-            unit = "No." if rm_type in ["Raw Material-FASTENER", "Raw Material-BOP"] else "Nos."
+            unit_wt = None
+        else:
+            if unit_wt and unit_wt > 0:
+                tot_wt = round(unit_wt * actual_qty * bom_header["po_qty"], 3)
+                unit = "Kg"
+            else:
+                tot_wt = actual_qty
+                unit = "Nos."
             
         if rm_type == "Raw Material-PIPE" and unit_wt and unit_wt > 0:
             unit = "Kg"
@@ -338,11 +417,11 @@ def parse_solidworks_bom(file_path: str, default_po_qty: float = 1.0):
             "width": w_val,
             "thk": t_val,
             "unit_qty": actual_qty,
-            "unit_weight": unit_wt if unit_wt > 0 else None,
+            "unit_weight": unit_wt if (unit_wt and unit_wt > 0) else None,
             "total_weight": tot_wt,
             "moc": moc,
             "unit": unit,
-            "remarks": l_val if rm_type in ["Raw Material-SQ PIPE", "Raw Material-PIPE", "Raw Material-ISA ANGLE", "Raw Material-ROD"] else None
+            "remarks": l_val if rm_type in ["Raw Material-SQ PIPE", "Raw Material-PIPE", "Raw Material-ISA ANGLE", "Raw Material-ROD", "Raw Material-SQ BAR"] else (remarks or None)
         })
         sn += 1
         

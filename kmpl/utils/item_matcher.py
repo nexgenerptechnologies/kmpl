@@ -259,12 +259,16 @@ def classify_rm_type(desc: str, pnum: str = "", moc: str = "") -> str:
     if "ROUND PIPE" in combined or "PIPE O.D" in combined or ("PIPE" in combined and "SQ" not in combined and "TUBE" not in combined and "PU" not in combined):
         return "Raw Material-PIPE"
         
-    # 5. Rods / Round bars
+    # 5. Round Plates vs Rods
+    if "ROUND PLATE" in combined or "PLATE DIA" in combined:
+        return "Raw Material-PLATE"
+
+    # Rods / Round bars
     if any(k in combined or k in u_moc for k in ["BRASS", "UHMW", "UHMWPE", "TEFLON", "PTFE"]):
         if "PLATE" not in combined and "SHEET" not in combined:
             return "Raw Material-ROD"
 
-    if "ROD" in combined or "ROUND BAR" in combined or "ROUND DIA" in combined or "ROUND  DIA" in combined or "BRASS BUSH" in combined or "SCREW-CLOCKWISE" in combined or "SCREW-ANTICLOCK" in combined:
+    if ("ROUND PLATE" not in combined and "PLATE DIA" not in combined) and ("ROD" in combined or "ROUND BAR" in combined or "ROUND DIA" in combined or "ROUND  DIA" in combined or "BRASS BUSH" in combined or "SCREW-CLOCKWISE" in combined or "SCREW-ANTICLOCK" in combined):
         return "Raw Material-ROD"
         
     # 6. Square Bars
