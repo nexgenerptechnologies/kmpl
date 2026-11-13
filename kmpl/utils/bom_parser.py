@@ -427,37 +427,4 @@ def parse_solidworks_bom(file_path: str, default_po_qty: float = 1.0):
         })
         sn += 1
         
-    # Append manually added non-CAD items as requested
-    manual_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "kmpl_manual_items.json")
-    if os.path.exists(manual_path):
-        try:
-            with open(manual_path, "r", encoding="utf-8") as f:
-                manual_items = json.load(f)
-            for m in manual_items:
-                orig_rem = m.get("orig_remarks") or ""
-                remark_str = "Manually Added (Not in 3D CAD)"
-                if orig_rem:
-                    remark_str = f"Manually Added (Not in 3D CAD) - {orig_rem}"
-                bom_items.append({
-                    "idx": sn,
-                    "category": m.get("category", "C"),
-                    "rm_type": m.get("rm_type"),
-                    "dwg_no": m.get("dwg_no", ""),
-                    "item_code": m.get("item_code", ""),
-                    "description": m.get("description", ""),
-                    "length": m.get("length"),
-                    "width": m.get("width"),
-                    "thk": m.get("thk"),
-                    "unit_qty": m.get("unit_qty", 1.0),
-                    "unit_weight": m.get("unit_weight"),
-                    "total_weight": m.get("total_weight"),
-                    "moc": m.get("moc", "AISI 304"),
-                    "unit": m.get("unit", "No."),
-                    "remarks": remark_str,
-                    "is_manual": True
-                })
-                sn += 1
-        except Exception:
-            pass
-
     return bom_header, bom_items
