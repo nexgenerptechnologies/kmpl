@@ -117,8 +117,19 @@ class DesignBOMCompiler(Document):
             "unit": self.unit or "Nos."
         }
 
-        bom_items_data = [d.as_dict() for d in self.items]
-        summary_items_data = [d.as_dict() for d in self.summary_items]
+        bom_items_data = []
+        for d in self.items:
+            row_dict = d.as_dict()
+            if "Manually Added" in str(row_dict.get("remarks") or ""):
+                row_dict["is_manual"] = True
+            bom_items_data.append(row_dict)
+
+        summary_items_data = []
+        for d in self.summary_items:
+            s_dict = d.as_dict()
+            if "Manually Added" in str(s_dict.get("general_description") or ""):
+                s_dict["is_manual"] = True
+            summary_items_data.append(s_dict)
 
         export_final_bom_excel(out_path, header_dict, bom_items_data, summary_items_data)
 
