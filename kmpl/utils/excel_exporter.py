@@ -18,6 +18,7 @@ def export_final_bom_excel(output_path: str, bom_header: dict, bom_items: list, 
     
     fill_header = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
     fill_sum_header = PatternFill(start_color="FFF2CC", end_color="FFF2CC", fill_type="solid")
+    fill_manual_yellow = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
     
     thin_border_side = Side(border_style="thin", color="D3D3D3")
     border_cell = Border(
@@ -85,11 +86,14 @@ def export_final_bom_excel(output_path: str, bom_header: dict, bom_items: list, 
             itm.get("unit"),
             itm.get("remarks")
         ]
+        is_manual_row = itm.get("is_manual", False)
         for c_idx, val in enumerate(row_vals, 1):
             cell = ws_bom.cell(r_idx, c_idx, value=val)
             cell.font = font_data
             cell.border = border_cell
-            if c_idx == 11 and (not val or itm.get("remarks") == "Pending Master Mapping"):
+            if is_manual_row:
+                cell.fill = fill_manual_yellow
+            elif c_idx == 11 and (not val or itm.get("remarks") == "Pending Master Mapping"):
                 cell.fill = fill_sum_header
             elif c_idx == 21 and itm.get("remarks") == "Pending Master Mapping":
                 cell.fill = fill_sum_header
@@ -143,10 +147,13 @@ def export_final_bom_excel(output_path: str, bom_header: dict, bom_items: list, 
             sitm.get("unit"),
             sitm.get("moc")
         ]
+        is_manual_sum = sitm.get("is_manual", False)
         for c_idx, val in enumerate(row_vals, 1):
             cell = ws_sum.cell(r_idx, c_idx, value=val)
             cell.font = font_data
             cell.border = border_cell
+            if is_manual_sum:
+                cell.fill = fill_manual_yellow
             if c_idx in [1, 2, 3, 9, 12, 13]:
                 cell.alignment = align_center
             elif c_idx in [7, 8, 11]:

@@ -111,6 +111,8 @@ def compile_summary(bom_items: list, project_no: str = "") -> list:
         grp["total_weight"] += tot_wt
         grp["total_qty"] += u_qty
         grp["total_length_mm"] += (l_mm * u_qty)
+        if item.get("is_manual"):
+            grp["is_manual"] = True
         
         is_std_plate = ((icode.startswith("RM-SS") or icode.startswith("RM-MS") or icode.startswith("RM-SCP") or icode.startswith("RM-MCS")) 
                         and "X" in icode 
@@ -182,6 +184,10 @@ def compile_summary(bom_items: list, project_no: str = "") -> list:
             unit = "No."
             gen_desc = data["desc"]
 
+        is_man = data.get("is_manual", False)
+        if is_man:
+            gen_desc = f"{gen_desc} [Manually Added (Not in 3D CAD)]".strip()
+
         summary_rows.append({
             "idx": sr,
             "project_no": project_no,
@@ -195,7 +201,8 @@ def compile_summary(bom_items: list, project_no: str = "") -> list:
             "general_description": gen_desc,
             "length_qty": length_qty,
             "unit": unit,
-            "moc": moc
+            "moc": moc,
+            "is_manual": is_man
         })
         sr += 1
         
