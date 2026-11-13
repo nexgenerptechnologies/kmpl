@@ -10,13 +10,16 @@ except ImportError:
 # Load complete master catalog from JSON (3,911 BOP, 536 Fasteners, 170 Sheet codes, 532 RM items)
 if frappe and hasattr(frappe, "get_app_path"):
     MASTER_DATA_PATH = frappe.get_app_path("kmpl", "data", "kmpl_master_data.json")
+    DWG_REF_PATH = frappe.get_app_path("kmpl", "data", "kmpl_drawing_reference.json")
 else:
     MASTER_DATA_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "kmpl_master_data.json")
+    DWG_REF_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "kmpl_drawing_reference.json")
 
 MASTER_BOP = {}
 MASTER_FASTENERS = {}
 MASTER_SHEETS = {}
 MASTER_RM = {}
+DWG_REF_MAP = {}
 
 if os.path.exists(MASTER_DATA_PATH):
     try:
@@ -28,6 +31,33 @@ if os.path.exists(MASTER_DATA_PATH):
             MASTER_RM = _raw.get("rm_items", {})
     except Exception as e:
         print(f"Warning: could not load {MASTER_DATA_PATH}: {e}")
+
+if os.path.exists(DWG_REF_PATH):
+    try:
+        with open(DWG_REF_PATH, "r", encoding="utf-8") as f:
+            _raw_dwg = json.load(f)
+            for k, v in _raw_dwg.items():
+                ck = re.sub(r'[^A-Za-z0-9]', '', str(k)).upper()
+                DWG_REF_MAP[ck] = v
+    except Exception as e:
+        print(f"Warning: could not load {DWG_REF_PATH}: {e}")
+
+def lookup_drawing_reference(dwg_name: str) -> dict:
+    """Looks up verified flat cutting dimensions and item details from Drawing Reference Master."""
+    if not dwg_name:
+        return None
+    ck = re.sub(r'[^A-Za-z0-9]', '', str(dwg_name)).upper()
+    if ck in DWG_REF_MAP:
+        return DWG_REF_MAP[ck]
+    for k, v in DWG_REF_MAP.items():
+        if ck in k or k in ck:
+            return v
+    if "MIRROR" in ck:
+        ck_clean = ck.replace("MIRROR", "")
+        for k, v in DWG_REF_MAP.items():
+            if ck_clean in k or k in ck_clean:
+                return v
+    return None
 
 # Build dynamic standard sheet weights from master sheet codes
 STD_SHEET_WEIGHTS = {}
@@ -204,6 +234,7 @@ def classify_rm_type(desc: str, pnum: str = "", moc: str = "") -> str:
     """Classifies a SolidWorks item into a standard Type of RM."""
     u_desc = (desc or "").upper()
     u_pnum = (pnum or "").upper()
+    u_moc = (moc or "").upper()
     combined = f"{u_pnum} {u_desc}"
     
     # 1. Fasteners
@@ -229,7 +260,11 @@ def classify_rm_type(desc: str, pnum: str = "", moc: str = "") -> str:
         return "Raw Material-PIPE"
         
     # 5. Rods / Round bars
-    if "ROD" in combined or "ROUND BAR" in combined or "ROUND DIA" in combined or "BRASS BUSH" in combined or "SCREW-CLOCKWISE" in combined or "SCREW-ANTICLOCK" in combined:
+    if any(k in combined or k in u_moc for k in ["BRASS", "UHMW", "UHMWPE", "TEFLON", "PTFE"]):
+        if "PLATE" not in combined and "SHEET" not in combined:
+            return "Raw Material-ROD"
+
+    if "ROD" in combined or "ROUND BAR" in combined or "ROUND DIA" in combined or "ROUND  DIA" in combined or "BRASS BUSH" in combined or "SCREW-CLOCKWISE" in combined or "SCREW-ANTICLOCK" in combined:
         return "Raw Material-ROD"
         
     # 6. Square Bars
@@ -244,7 +279,8 @@ def classify_rm_type(desc: str, pnum: str = "", moc: str = "") -> str:
     if any(k in combined for k in [
         "BEARING", "CASTOR", "GLAND", "VALVE", "SPROCKET", "MOTOR", "PUMP",
         "GAUGE", "GUAGE", "SEAL", "HOSE", "BEND", "UNION", "CLAMP", "CHAIN",
-        "FILTER", "REGULATOR", "LUBRICATOR", "LOCKING DEVICE", "LOCK WASHER", "LOCK NUT"
+        "FILTER", "REGULATOR", "LUBRICATOR", "LOCKING DEVICE", "LOCK WASHER", "LOCK NUT",
+        "ABRAZADERA", "ENCLOSURE", "PUSH BUTTON", "SWITCH", "INDICATOR"
     ]):
         return "Raw Material-BOP"
         
@@ -271,6 +307,12 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
 
     # 2. PLATE
     if rm_type == "Raw Material-PLATE":
+        if "CHECKER" in combined or "CHEQUER" in combined:
+            if is_ms:
+                return "RM-MCS1220X3MM"
+            if thk == 5:
+                return "RM-SCP51220MM"
+            return "RM-SCP31220M"
         if "SILICON" in u_moc or "SILICON" in combined or "REDSIS" in combined:
             return "RM-REDSIS1200X3M"
         if "UHMWPE" in combined or "UHMWPE" in u_moc or "UHMW" in u_moc:
@@ -280,7 +322,9 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
         if "TEFLON" in combined:
             return "RM-TS3X1000M"
             
-        t = thk if thk is not None else 3.0
+        t = thk if thk is not None else None
+        if t is None:
+            return ""
         t_str = f"{t:g}"
         
         if is_ms:
@@ -415,6 +459,9 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
         
     # 9. BOP
     elif rm_type == "Raw Material-BOP":
+        if "ABRAZADERA" in combined or ("HOSE" in combined and "CLAMP" in combined):
+            return "FT-HCLAMP1\""
+
         if frappe and hasattr(frappe, "db") and frappe.db:
             try:
                 db_item = frappe.db.get_value(
@@ -448,9 +495,9 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
                 if all(tok in m_desc for tok in tokens):
                     return m_info["code"]
                     
-        return "BOP-STD"
+        return ""
         
-    return "RM-STD"
+    return ""
 
 
 def get_standard_sheet_weight(item_code: str) -> float:

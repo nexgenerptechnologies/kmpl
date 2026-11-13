@@ -89,6 +89,10 @@ def export_final_bom_excel(output_path: str, bom_header: dict, bom_items: list, 
             cell = ws_bom.cell(r_idx, c_idx, value=val)
             cell.font = font_data
             cell.border = border_cell
+            if c_idx == 11 and (not val or itm.get("remarks") == "Pending Master Mapping"):
+                cell.fill = fill_sum_header
+            elif c_idx == 21 and itm.get("remarks") == "Pending Master Mapping":
+                cell.fill = fill_sum_header
             if c_idx in [1, 2, 4, 6, 7, 8, 16, 20]:
                 cell.alignment = align_center
             elif c_idx in [13, 14, 15, 17, 18, 21]:

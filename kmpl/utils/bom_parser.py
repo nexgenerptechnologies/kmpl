@@ -1,6 +1,6 @@
 import re
 import openpyxl
-from .item_matcher import classify_rm_type, match_item_code
+from .item_matcher import classify_rm_type, match_item_code, lookup_drawing_reference
 from .weight_calculator import calculate_item_weight
 
 def clean_str(val):
@@ -161,8 +161,10 @@ def parse_solidworks_bom(file_path: str, default_po_qty: float = 1.0):
         qty = parse_number(qty_col) or 1.0
         combined = re.sub(r'\s+', ' ', f"{pnum_clean} {desc}").upper()
         
-        # Skip top-level assembly headers (e.g. LEG FRAME ASSY, GEAR BOX ASSY, etc.)
-        if "ASSY" in pnum_clean.upper() and ("ASSY" in desc.upper() or not desc or "FRAME" in desc.upper() or "GEAR BOX" in desc.upper()):
+        # Skip top-level assembly headers, subassemblies, and non-manufacturing CAD items
+        if "ASSY" in pnum_clean.upper() or "ASSY" in desc.upper():
+            continue
+        if any(k in pnum_clean.upper() for k in ["LOCK PART", "R77DRN112M1"]):
             continue
             
         # Check if this row is a part header with child cut-pieces below it
@@ -187,8 +189,28 @@ def parse_solidworks_bom(file_path: str, default_po_qty: float = 1.0):
         # Classify Type of RM
         rm_type = classify_rm_type(desc, pnum_clean, moc)
         
-        # Match Item Code
-        item_code = match_item_code(rm_type, desc, t_val, w_val, l_val, moc, pnum=pnum_clean)
+        # Base drawing for mirror parts
+        base_dwg = pnum_clean
+        if "MIRROR" in pnum_clean.upper():
+            base_dwg = re.sub(r'MIRROR', '', pnum_clean, flags=re.IGNORECASE).strip()
+            
+        # Option A: Drawing Reference Master Lookup (for leaf part drawings, not child cut-pieces)
+        ref = None
+        if pnum_clean:
+            ref = lookup_drawing_reference(actual_dwg) or lookup_drawing_reference(pnum_clean) or lookup_drawing_reference(base_dwg)
+            if ref:
+                if not l_val or l_val == 0: l_val = ref.get("length")
+                if not w_val or w_val == 0: w_val = ref.get("width")
+                if not t_val or t_val == 0: t_val = ref.get("thk")
+                if ref.get("rm_type"): rm_type = ref.get("rm_type")
+                if ref.get("item_code"): item_code = ref.get("item_code")
+                else: item_code = match_item_code(rm_type, desc, t_val, w_val, l_val, moc, pnum=pnum_clean)
+                if ref.get("desc") and (not desc or desc == "PART--DESC" or desc == "Sheet"):
+                    desc = ref.get("desc")
+            else:
+                item_code = match_item_code(rm_type, desc, t_val, w_val, l_val, moc, pnum=pnum_clean)
+        else:
+            item_code = match_item_code(rm_type, desc, t_val, w_val, l_val, moc, pnum=pnum_clean)
         
         # Specific overrides for known hardware / fittings
         if "OIL LEVEL" in combined:
@@ -211,9 +233,19 @@ def parse_solidworks_bom(file_path: str, default_po_qty: float = 1.0):
         elif "SMS UNION" in combined:
             rm_type = "Raw Material-BOP"
             item_code = "FT-SUM101.6M"
-        elif "HOSE" in combined and "CLAMP" in combined:
+        elif "ABRAZADERA" in combined or ("HOSE" in combined and "CLAMP" in combined):
             rm_type = "Raw Material-BOP"
             item_code = "FT-HCLAMP1\""
+            desc = "Hose and Tube Clamp-1\""
+            actual_dwg = "Hose and Tube Clamp"
+        elif "ROUND" in combined and "DIA" in combined:
+            rm_type = "Raw Material-ROD"
+            if "75" in combined or (w_val and abs(w_val - 75) < 2) or (t_val and abs(t_val - 75) < 2):
+                item_code = "RM-SR80M"
+                desc = "ROUND DIA75.0"
+        elif "CHECKER" in combined or "CHEQUER" in combined:
+            rm_type = "Raw Material-PLATE"
+            item_code = "RM-SCP31220M"
         elif "FLEXIBLE PIPE" in combined:
             rm_type = "Raw Material-BOP"
             item_code = "H-PBFP01\""
@@ -235,6 +267,11 @@ def parse_solidworks_bom(file_path: str, default_po_qty: float = 1.0):
             
         # Unit Weight calculation
         unit_wt = calculate_item_weight(rm_type, l_val, w_val, t_val, moc, item_code, desc)
+        if (not unit_wt or unit_wt <= 0) and ref and ref.get("unit_weight"):
+            try:
+                unit_wt = round(float(ref.get("unit_weight")), 4)
+            except (ValueError, TypeError):
+                pass
         
         # Fallback for Sheet Metal leaf parts where geometric L/W/T is blank
         if rm_type == "Raw Material-PLATE" and unit_wt <= 0:
@@ -255,13 +292,22 @@ def parse_solidworks_bom(file_path: str, default_po_qty: float = 1.0):
                     t_val = 1.5
                     item_code = "RM-SS1.5X1500M"
                     
-        # Total Weight
+        # Remarks and Unmapped items handling
+        remarks = clean_str(row[19]) if len(row) > 19 and row[19] else ""
+        if not item_code:
+            item_code = ""
+            remarks = "Pending Master Mapping"
+            
+        # Total Weight and Units
         if unit_wt > 0 and rm_type not in ["Raw Material-FASTENER", "Raw Material-BOP"]:
             tot_wt = round(unit_wt * actual_qty * bom_header["po_qty"], 3)
             unit = "Kg"
         else:
             tot_wt = actual_qty
             unit = "No." if rm_type in ["Raw Material-FASTENER", "Raw Material-BOP"] else "Nos."
+            
+        if rm_type == "Raw Material-PIPE" and unit_wt and unit_wt > 0:
+            unit = "Kg"
             
         # Handle Castor Wheels: if 4 castors, split 2 with brake and 2 without brake like in original file
         if item_code == "HW-TWWB42140K" and actual_qty == 4.0:
