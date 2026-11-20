@@ -77,19 +77,44 @@ def extract_dimensions_from_desc(desc: str, length_col=None, bb_l=None, bb_w=Non
                     w = float(mdia_single.group(1))
                     t = w
                 
-    # 3. OD pattern for Pipes/Rods: PIPE O.D 33.40 X 2.77 X L- 25.00
+    # 3. OD pattern for Pipes/Rods
     elif "O.D" in u_desc or "OD" in u_desc:
-        mod = re.search(r'O\.?D\.?\s*(\d+(?:\.\d+)?).*?(?:THK|SCH)?\s*(\d+(?:\.\d+)?).*?L[- ]*(\d+(?:\.\d+)?)', u_desc)
-        if mod:
-            w = float(mod.group(1))
-            t = float(mod.group(2))
-            l = float(mod.group(3))
+        # 3a. OD ... THK ... L - ... e.g. 'PIPE O.D 73.03, THK 5, L - 65.00' or 'PIPE O.D 50.80 X THK-1.65 X L- 1030.00'
+        m1 = re.search(r'O\.?D\.?\s*[-=]?\s*(\d+(?:\.\d+)?).*?(?:THK|SCH)?\s*[-=]?\s*(\d+(?:\.\d+)?).*?L\s*[-=]?\s*(\d+(?:\.\d+)?)', u_desc)
+        if m1 and 'L' in u_desc[m1.start(3)-4:m1.start(3)]:
+            w = float(m1.group(1))
+            t = float(m1.group(2))
+            l = float(m1.group(3))
+            if t == 10.0 and 'SCH' in u_desc:
+                t = 2.77
         else:
-            mod_simple = re.search(r'O\.?D\.?\s*(\d+(?:\.\d+)?).*?L[- ]*(\d+(?:\.\d+)?)', u_desc)
-            if mod_simple:
-                w = float(mod_simple.group(1))
-                l = float(mod_simple.group(2))
-                t = w
+            # 3b. OD [D] x [L] (THK- [T]) or OD [D] x [L]L ([T]) e.g. 'STD PIPE OD 73.03x30.00(THK- 4.02mm)' or 'STD. PIPE OD 114.30x527.00L (5.00)'
+            m2 = re.search(r'O\.?D\.?\s*[-=]?\s*(\d+(?:\.\d+)?)\s*[xX*]\s*(\d+(?:\.\d+)?)\s*L?\s*(?:\([^\)]*?(\d+(?:\.\d+)?)\s*(?:MM)?\))?', u_desc)
+            if m2 and m2.group(3):
+                w = float(m2.group(1))
+                l = float(m2.group(2))
+                t = float(m2.group(3))
+            else:
+                # 3c. OD [D] x [L] x THK [T] e.g. 'STD PIPE OD 60.00x25.50 x THK 3.50'
+                m3 = re.search(r'O\.?D\.?\s*[-=]?\s*(\d+(?:\.\d+)?)\s*[xX*]\s*(\d+(?:\.\d+)?)\s*[xX*]\s*THK\s*[-=]?\s*(\d+(?:\.\d+)?)', u_desc)
+                if m3:
+                    w = float(m3.group(1))
+                    l = float(m3.group(2))
+                    t = float(m3.group(3))
+                else:
+                    # 3d. OD-[D] x THK-[T] x [L] e.g. 'PIPE,OD-48.26 x THK-2.77 x 60'
+                    m4 = re.search(r'O\.?D\.?\s*[-=]?\s*(\d+(?:\.\d+)?)\s*[xX*]\s*(?:THK)?\s*[-=]?\s*(\d+(?:\.\d+)?)\s*[xX*]\s*(?:L\s*[-=]?\s*)?(\d+(?:\.\d+)?)', u_desc)
+                    if m4:
+                        w = float(m4.group(1))
+                        t = float(m4.group(2))
+                        l = float(m4.group(3))
+                    else:
+                        # 3e. OD ... L- ... e.g. 'PIPE O.D 33.40 X L- 125.00' or 'ROD O.D 25.0 X L- 18.5'
+                        m5 = re.search(r'O\.?D\.?\s*[-=]?\s*(\d+(?:\.\d+)?).*?L\s*[-=]?\s*(\d+(?:\.\d+)?)', u_desc)
+                        if m5:
+                            w = float(m5.group(1))
+                            l = float(m5.group(2))
+                            t = 2.77 if ("PIPE" in u_desc and abs(w - 33.4) < 1) else w
 
     # 4. Standard 2D pattern: 40.00x40.00
     elif not l:
@@ -211,23 +236,28 @@ def parse_solidworks_bom(file_path: str, default_po_qty: float = 1.0):
         if "MIRROR" in pnum_clean.upper():
             base_dwg = re.sub(r'MIRROR', '', pnum_clean, flags=re.IGNORECASE).strip()
             
-        # Option A: Drawing Reference Master Lookup (for leaf part drawings, not child cut-pieces)
+        # Option A: Drawing Reference Master Lookup (for leaf parts and child cut-pieces)
         ref = None
-        if pnum_clean:
-            ref = lookup_drawing_reference(actual_dwg) or lookup_drawing_reference(pnum_clean) or lookup_drawing_reference(base_dwg)
+        lookup_dwg = pnum_clean or actual_dwg or base_dwg
+        if lookup_dwg:
+            ref = lookup_drawing_reference(lookup_dwg) or lookup_drawing_reference(actual_dwg) or lookup_drawing_reference(base_dwg)
             if ref:
-                if not l_val or l_val == 0: l_val = ref.get("length")
-                if not w_val or w_val == 0: w_val = ref.get("width")
-                if not t_val or t_val == 0: t_val = ref.get("thk")
-                if ref.get("rm_type"): rm_type = ref.get("rm_type")
-                if ref.get("item_code"): item_code = ref.get("item_code")
-                else: item_code = match_item_code(rm_type, desc, t_val, w_val, l_val, moc, pnum=pnum_clean)
-                if ref.get("desc") and (not desc or desc == "PART--DESC" or desc == "Sheet"):
-                    desc = ref.get("desc")
+                # If child piece is a sheet metal plate or matches ref rm_type, take verified drawing dimensions
+                if (not desc or desc == "Sheet" or desc == "PART--DESC" or ref.get("rm_type") == rm_type):
+                    if not l_val or l_val == 0: l_val = ref.get("length")
+                    if not w_val or w_val == 0: w_val = ref.get("width")
+                    if not t_val or t_val == 0: t_val = ref.get("thk")
+                    if ref.get("rm_type"): rm_type = ref.get("rm_type")
+                    if ref.get("item_code"): item_code = ref.get("item_code")
+                    else: item_code = match_item_code(rm_type, desc, t_val, w_val, l_val, moc, pnum=lookup_dwg)
+                    if ref.get("desc") and (not desc or desc == "PART--DESC" or desc == "Sheet"):
+                        desc = ref.get("desc")
+                else:
+                    item_code = match_item_code(rm_type, desc, t_val, w_val, l_val, moc, pnum=pnum_clean or actual_dwg)
             else:
-                item_code = match_item_code(rm_type, desc, t_val, w_val, l_val, moc, pnum=pnum_clean)
+                item_code = match_item_code(rm_type, desc, t_val, w_val, l_val, moc, pnum=pnum_clean or actual_dwg)
         else:
-            item_code = match_item_code(rm_type, desc, t_val, w_val, l_val, moc, pnum=pnum_clean)
+            item_code = match_item_code(rm_type, desc, t_val, w_val, l_val, moc, pnum=pnum_clean or actual_dwg)
         
         # Specific overrides for known hardware / fittings
         if "OIL LEVEL" in combined:
@@ -293,14 +323,26 @@ def parse_solidworks_bom(file_path: str, default_po_qty: float = 1.0):
                 pass
         
         # Fallback for Sheet Metal leaf parts where geometric L/W/T is incomplete or unit_wt is 0
+        sw_wt = parse_number(wt_col)
         if rm_type == "Raw Material-PLATE" and unit_wt <= 0:
-            if not t_val and l_val and w_val:
+            if not t_val and l_val and w_val and sw_wt and sw_wt > 0:
+                density = get_density_for_moc(moc, desc)
+                calc_thk = (sw_wt / 1000.0) / (l_val * w_val * density)
+                standard_thks = [0.5, 0.8, 1.0, 1.2, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 14.0, 15.0, 16.0, 20.0, 25.0, 30.0]
+                t_val = 1.5
+                for st in standard_thks:
+                    if st >= calc_thk * 0.95:
+                        t_val = st
+                        break
+                if not item_code:
+                    item_code = match_item_code(rm_type, desc, t_val, w_val, l_val, moc, pnum=actual_dwg)
+                unit_wt = calculate_item_weight(rm_type, l_val, w_val, t_val, moc, item_code, desc)
+            elif not t_val and l_val and w_val:
                 t_val = 1.5
                 if not item_code:
                     item_code = "RM-SS1.5X1500M"
                 unit_wt = calculate_item_weight(rm_type, l_val, w_val, t_val, moc, item_code, desc)
             else:
-                sw_wt = parse_number(wt_col)
                 if sw_wt:
                     unit_wt = round(sw_wt / 1000.0, 3) # Convert grams to kg
                     u_moc = moc.upper()
@@ -390,23 +432,14 @@ def parse_solidworks_bom(file_path: str, default_po_qty: float = 1.0):
         if rm_type == "Raw Material-PIPE" and unit_wt and unit_wt > 0:
             unit = "Kg"
             
-        # Handle Castor Wheels: if 4 castors, split 2 with brake and 2 without brake like in original file
-        if item_code == "HW-TWWB42140K" and actual_qty == 4.0:
-            bom_items.append({
-                "idx": sn, "category": "C", "rm_type": rm_type, "dwg_no": actual_dwg,
-                "item_code": "HW-TWWB42140K", "description": "CASTOR WHEEL",
-                "length": None, "width": None, "thk": None, "unit_qty": 2.0,
-                "unit_weight": None, "total_weight": 2.0, "moc": moc, "unit": "No.", "remarks": None
-            })
-            sn += 1
-            bom_items.append({
-                "idx": sn, "category": "C", "rm_type": rm_type, "dwg_no": actual_dwg,
-                "item_code": "HW-TWWOB42140K", "description": "CASTOR WHEEL",
-                "length": None, "width": None, "thk": None, "unit_qty": 2.0,
-                "unit_weight": None, "total_weight": 2.0, "moc": moc, "unit": "No.", "remarks": None
-            })
-            sn += 1
-            continue
+        # Castor Wheels: maintain single entry as modeled in CAD (4 Nos.)
+        if "CASTOR" in actual_dwg.upper():
+            if desc and "CASTOR" not in desc.upper():
+                remarks = desc
+            desc = "CASTOR WHEEL"
+            unit = "Nos."
+            unit_wt = None
+            tot_wt = actual_qty
             
         bom_items.append({
             "idx": sn,
