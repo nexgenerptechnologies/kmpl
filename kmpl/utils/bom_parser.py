@@ -28,7 +28,7 @@ def extract_dimensions_from_desc(desc: str, length_col=None, bb_l=None, bb_w=Non
     """
     u_desc = re.sub(r'[\r\n]+', ' ', (desc or "").upper())
     u_desc = re.sub(r'(\d+)\s*\.\s*(\d+)', r'\1.\2', u_desc)
-    u_desc = re.sub(r'(\d+\.\d+)\s+(\d+)', r'\1\2', u_desc)
+    u_desc = re.sub(r'(\d+\.\d+)\s+(00?)\b', r'\1\2', u_desc)
     
     l, w, t = None, None, None
 
@@ -80,13 +80,18 @@ def extract_dimensions_from_desc(desc: str, length_col=None, bb_l=None, bb_w=Non
     # 3. OD pattern for Pipes/Rods
     elif "O.D" in u_desc or "OD" in u_desc:
         # 3a. OD ... THK ... L - ... e.g. 'PIPE O.D 73.03, THK 5, L - 65.00' or 'PIPE O.D 50.80 X THK-1.65 X L- 1030.00'
-        m1 = re.search(r'O\.?D\.?\s*[-=]?\s*(\d+(?:\.\d+)?).*?(?:THK|SCH)?\s*[-=]?\s*(\d+(?:\.\d+)?).*?L\s*[-=]?\s*(\d+(?:\.\d+)?)', u_desc)
+        m1 = re.search(r'O\.?D\.?\s*[-=]?\s*(\d+(?:\.\d+)?).*?(?:THK|SCH)\s*[-=]?\s*(\d+(?:\.\d+)?).*?L\s*[-=]?\s*(\d+(?:\.\d+)?)', u_desc)
+        m_pipe3d = re.search(r'O\.?D\.?\s*[-=]?\s*(\d+(?:\.\d+)?)(?:\s*[xX*]\s*|\s+)(\d+(?:\.\d+)?)\s*(?:[xX*]\s*)?L\s*[-=]?\s*(\d+(?:\.\d+)?)', u_desc)
         if m1 and 'L' in u_desc[m1.start(3)-4:m1.start(3)]:
             w = float(m1.group(1))
             t = float(m1.group(2))
             l = float(m1.group(3))
             if t == 10.0 and 'SCH' in u_desc:
                 t = 2.77
+        elif m_pipe3d:
+            w = float(m_pipe3d.group(1))
+            t = float(m_pipe3d.group(2))
+            l = float(m_pipe3d.group(3))
         else:
             # 3b. OD [D] x [L] (THK- [T]) or OD [D] x [L]L ([T]) e.g. 'STD PIPE OD 73.03x30.00(THK- 4.02mm)' or 'STD. PIPE OD 114.30x527.00L (5.00)'
             m2 = re.search(r'O\.?D\.?\s*[-=]?\s*(\d+(?:\.\d+)?)\s*[xX*]\s*(\d+(?:\.\d+)?)\s*L?\s*(?:\([^\)]*?(\d+(?:\.\d+)?)\s*(?:MM)?\))?', u_desc)
@@ -172,9 +177,14 @@ def parse_solidworks_bom(file_path: str, default_po_qty: float = 1.0):
     for i in range(1, len(sw_rows)):
         pnum_clean = clean_str(sw_rows[i][8])
         next_pnum_clean = clean_str(sw_rows[i+1][8]) if i+1 < len(sw_rows) else "END"
-        has_cut_pieces[i] = (bool(pnum_clean) and not bool(next_pnum_clean))
+        desc_upper = clean_str(sw_rows[i][10]).upper()
+        is_bop = any(k in pnum_clean.upper() or k in desc_upper for k in [
+            "GEAR", "HELICAL", "CASTOR", "GLAND", "VALVE", "BEARING", "SPROCKET", "MOTOR", "FASTENER"
+        ])
+        has_cut_pieces[i] = (bool(pnum_clean) and not bool(next_pnum_clean) and not is_bop)
 
     current_dwg_no = ""
+    current_dwg_is_bop = False
     parent_qty = 1.0
     bom_items = []
     sn = 1
@@ -209,6 +219,11 @@ def parse_solidworks_bom(file_path: str, default_po_qty: float = 1.0):
         if any(k in pnum_clean.upper() for k in ["LOCK PART", "R77DRN112M1"]):
             continue
             
+        if pnum_clean:
+            current_dwg_is_bop = any(k in pnum_clean.upper() or k in desc.upper() for k in [
+                "GEAR", "HELICAL", "CASTOR", "GLAND", "VALVE", "BEARING", "SPROCKET", "MOTOR", "FASTENER"
+            ])
+
         # Check if this row is a part header with child cut-pieces below it
         if pnum_clean and has_cut_pieces.get(r, False):
             current_dwg_no = pnum_clean
@@ -217,6 +232,8 @@ def parse_solidworks_bom(file_path: str, default_po_qty: float = 1.0):
             
         # Determine actual drawing number and quantity
         if not pnum_clean:
+            if current_dwg_is_bop:
+                continue
             actual_dwg = current_dwg_no
             actual_qty = qty * parent_qty
         else:
@@ -236,28 +253,32 @@ def parse_solidworks_bom(file_path: str, default_po_qty: float = 1.0):
         if "MIRROR" in pnum_clean.upper():
             base_dwg = re.sub(r'MIRROR', '', pnum_clean, flags=re.IGNORECASE).strip()
             
-        # Option A: Drawing Reference Master Lookup (for leaf parts and child cut-pieces)
+        # Option A: Drawing Reference Master Lookup (for leaf parts only; cut-pieces derive directly)
         ref = None
-        lookup_dwg = pnum_clean or actual_dwg or base_dwg
-        if lookup_dwg:
-            ref = lookup_drawing_reference(lookup_dwg) or lookup_drawing_reference(actual_dwg) or lookup_drawing_reference(base_dwg)
-            if ref:
-                # If child piece is a sheet metal plate or matches ref rm_type, take verified drawing dimensions
-                if (not desc or desc == "Sheet" or desc == "PART--DESC" or ref.get("rm_type") == rm_type):
-                    if not l_val or l_val == 0: l_val = ref.get("length")
-                    if not w_val or w_val == 0: w_val = ref.get("width")
-                    if not t_val or t_val == 0: t_val = ref.get("thk")
-                    if ref.get("rm_type"): rm_type = ref.get("rm_type")
-                    if ref.get("item_code"): item_code = ref.get("item_code")
-                    else: item_code = match_item_code(rm_type, desc, t_val, w_val, l_val, moc, pnum=lookup_dwg)
-                    if ref.get("desc") and (not desc or desc == "PART--DESC" or desc == "Sheet"):
-                        desc = ref.get("desc")
-                else:
-                    item_code = match_item_code(rm_type, desc, t_val, w_val, l_val, moc, pnum=pnum_clean or actual_dwg)
+        if pnum_clean:
+            lookup_dwg = pnum_clean or base_dwg
+            ref = lookup_drawing_reference(lookup_dwg) or lookup_drawing_reference(base_dwg)
+            if ref and rm_type != "Raw Material-FASTENER":
+                if not l_val or l_val == 0: l_val = ref.get("length")
+                if not w_val or w_val == 0: w_val = ref.get("width")
+                if not t_val or t_val == 0: t_val = ref.get("thk")
+                if ref.get("rm_type"): rm_type = ref.get("rm_type")
+                if ref.get("item_code"): item_code = ref.get("item_code")
+                else: item_code = match_item_code(rm_type, desc, t_val, w_val, l_val, moc, pnum=lookup_dwg)
+                if ref.get("desc") and (not desc or desc == "PART--DESC" or desc == "Sheet"):
+                    desc = ref.get("desc")
             else:
-                item_code = match_item_code(rm_type, desc, t_val, w_val, l_val, moc, pnum=pnum_clean or actual_dwg)
+                item_code = match_item_code(rm_type, desc, t_val, w_val, l_val, moc, pnum=pnum_clean)
         else:
-            item_code = match_item_code(rm_type, desc, t_val, w_val, l_val, moc, pnum=pnum_clean or actual_dwg)
+            # Child cut-piece of an assembly (pnum_clean is empty)
+            # Never inherit parent's item code or profile
+            if desc == "Sheet":
+                rm_type = "Raw Material-PLATE"
+                if not t_val or t_val == 0:
+                    t_val = 3.0
+                item_code = match_item_code(rm_type, desc, t_val, w_val, l_val, moc, pnum=actual_dwg)
+            else:
+                item_code = match_item_code(rm_type, desc, t_val, w_val, l_val, moc, pnum=actual_dwg)
         
         # Specific overrides for known hardware / fittings
         if "OIL LEVEL" in combined:

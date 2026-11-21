@@ -119,6 +119,7 @@ WEIGHT_PER_METER = {
     
     # Round pipes
     "RM-SRP33.4X3M": 2.13,
+    "RM-SHP50.8X1.65MM": 1.95,
     "RM-SRP48.3X1.65MM": 1.95,
     "RM-SRP48X3M": 3.11,
     "RM-SRP60.3X3.91M": 4.31,
@@ -187,6 +188,10 @@ BOP_CATALOG = {
     "1 INCH 3 PIECE BALL VALVE": "FT-BV1\"3P",
     "GEARMOTOR": "GM-W751.1KW31R",
     "W75": "GM-W751.1KW31R",
+    "HELICAL GEAR": "FT-HG25T",
+    "25T 15.942369HA": "FT-HG25T",
+    "PRT203801036": "FT-HG25T",
+    "PRT203801037": "FT-HG25T",
     "MOTOR ASSY": "GM-W751.1KW31R",
     "SPROCKET 26T": "SP-MSP26T1\"",
     "26SB75": "SP-MSP26T1\"",
@@ -256,7 +261,7 @@ def classify_rm_type(desc: str, pnum: str = "", moc: str = "") -> str:
         return "Raw Material-ISA ANGLE"
         
     # 4. Round Pipes
-    if "ROUND PIPE" in combined or "PIPE O.D" in combined or ("PIPE" in combined and "SQ" not in combined and "TUBE" not in combined and "PU" not in combined):
+    if ("ROUND PIPE" in combined or "PIPE O.D" in combined or ("PIPE" in combined and "SQ" not in combined and "TUBE" not in combined and "PU" not in combined)) and not any(k in combined for k in ["BKT", "BRACKET", "MT. BKT", "MOUNTING BKT"]):
         return "Raw Material-PIPE"
         
     # 5. Round Plates vs Rods
@@ -284,12 +289,12 @@ def classify_rm_type(desc: str, pnum: str = "", moc: str = "") -> str:
         "BEARING", "CASTOR", "GLAND", "VALVE", "SPROCKET", "MOTOR", "PUMP",
         "GAUGE", "GUAGE", "SEAL", "HOSE", "BEND", "UNION", "CLAMP", "CHAIN",
         "FILTER", "REGULATOR", "LUBRICATOR", "LOCKING DEVICE", "LOCK WASHER", "LOCK NUT",
-        "ABRAZADERA", "ENCLOSURE", "PUSH BUTTON", "SWITCH", "INDICATOR"
+        "ABRAZADERA", "ENCLOSURE", "PUSH BUTTON", "SWITCH", "INDICATOR", "GEAR", "HELICAL"
     ]):
         return "Raw Material-BOP"
         
     # 9. Plates and sheets
-    if any(k in combined for k in ["PLATE", "SHEET", "CHECKER SHEET", "END PLATE", "FLANGE", "COVER", "HOPPER"]):
+    if any(k in combined for k in ["PLATE", "SHEET", "CHECKER SHEET", "END PLATE", "FLANGE", "COVER", "HOPPER", "BKT", "BRACKET"]):
         return "Raw Material-PLATE"
         
     return "Raw Material-PLATE"
@@ -341,8 +346,13 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
             
     # 3. SQUARE PIPE
     elif rm_type == "Raw Material-SQ PIPE":
-        w = int(round(width or 50))
-        t = int(round(thk or 3))
+        mw = re.search(r'(?:SQUARE|SQ\.?\s*PIPE|TUBE,?\s*SQUARE)\s*(\d+(?:\.\d+)?)\s*[xX*]\s*(\d+(?:\.\d+)?)\s*[xX*]\s*(\d+(?:\.\d+)?)', combined)
+        if mw:
+            w = int(round(float(mw.group(1))))
+            t = int(round(float(mw.group(3))))
+        else:
+            w = int(round(width or 50))
+            t = int(round(thk or 3))
         return f"RM-SSQP{w}X{t}M"
         
     # 4. ANGLE
@@ -359,7 +369,9 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
             if is_ms or any(k in combined for k in ["SCH 40", "SCH-40", "THK-4", "THK 4"]):
                 return "RM-MRP73X4M"
             return "RM-SRP73X5M"
-        if any(k in combined for k in ["48.3", "50.8"]) or (width and abs(width - 48.3) < 3):
+        if "50.8" in combined or (width and abs(width - 50.8) < 1):
+            return "RM-SHP50.8X1.65MM"
+        if "48.3" in combined or (width and abs(width - 48.3) < 1):
             if "1.65" in combined or (thk and abs(thk - 1.65) < 0.1):
                 return "RM-SRP48.3X1.65MM"
             return "RM-SRP48X3M"
@@ -373,7 +385,11 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
         
     # 6. ROD (Commercial Raw Stock Rounding)
     elif rm_type == "Raw Material-ROD":
-        d = width or thk or 25.0
+        m_dia = re.search(r'(?:O\.?D\.?|DIA)\s*[-=]?\s*(\d+(?:\.\d+)?)', combined)
+        if m_dia:
+            d = float(m_dia.group(1))
+        else:
+            d = width or thk or 25.0
         
         # Brass rod
         if "BRASS" in u_moc or "BRASS" in combined:
@@ -432,7 +448,7 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
         elif any(k in combined for k in ["CSK", "COUNTERSUNK"]):
             target_code = f"F-ALCSKB{m_num}X{l_val}" if l_val else f"F-ALCSKB{m_num}"
         elif any(k in combined for k in ["BUTTON HEAD", "BHB"]):
-            target_code = f"F-BHB{m_num}X{l_val}" if l_val else f"F-BHB{m_size}"
+            target_code = f"F-BHBM{m_num}X{l_val}" if l_val else f"F-BHBM{m_size}"
         elif any(k in combined for k in ["GRUB", "GURB"]):
             target_code = f"F-GS{m_num}X{l_val}" if l_val else f"F-GS{m_num}"
         elif "HEX" in combined:
