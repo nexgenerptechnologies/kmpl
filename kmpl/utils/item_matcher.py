@@ -363,23 +363,23 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
         
     # 5. ROUND PIPE (Standard Commercial Piping Sizes)
     elif rm_type == "Raw Material-PIPE":
-        if "168.3" in combined or (width and abs(width - 168.3) < 1):
+        if "168.3" in u_desc or (width and abs(width - 168.3) < 1):
             return "RM-P168.3X3.4THK"
-        if "73" in combined or (width and abs(width - 73) < 1):
+        if re.search(r'\b73(?:\.03)?\b', u_desc) or (width and abs(width - 73) < 1):
             if is_ms or any(k in combined for k in ["SCH 40", "SCH-40", "THK-4", "THK 4"]):
                 return "RM-MRP73X4M"
             return "RM-SRP73X5M"
-        if "50.8" in combined or (width and abs(width - 50.8) < 1):
+        if "50.8" in u_desc or (width and abs(width - 50.8) < 1):
             return "RM-SHP50.8X1.65MM"
-        if "48.3" in combined or (width and abs(width - 48.3) < 1):
+        if any(k in u_desc for k in ["48.3", "48.26", "OD-48", "OD 48"]) or (width and abs(width - 48.3) < 1):
             if "1.65" in combined or (thk and abs(thk - 1.65) < 0.1):
                 return "RM-SRP48.3X1.65MM"
             return "RM-SRP48X3M"
-        if "60" in combined or (width and abs(width - 60) < 1):
+        if re.search(r'\b60(?:\.3)?\b', u_desc) or (width and abs(width - 60) < 1):
             return "RM-SRP60.3X3.91M"
-        if "114" in combined or (width and abs(width - 114) < 1):
+        if "114" in u_desc or (width and abs(width - 114) < 1):
             return "RM-SRP114X5M"
-        if "33.4" in combined or (width and abs(width - 33.4) < 1):
+        if "33.4" in u_desc or (width and abs(width - 33.4) < 1):
             return "RM-SRP33.4X3M"
         return "RM-SRP33.4X3M"
         
