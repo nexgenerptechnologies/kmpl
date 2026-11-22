@@ -435,47 +435,30 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
         l_match = re.search(r'(?:L\s*[-=]?\s*|X\s*L?\s*[-=]?\s*)(\d+)', combined)
         l_val = l_match.group(1) if l_match else None
         
-        target_code = None
-        
+        candidates = []
         if "NUT" in combined:
-            target_code = f"F-HN{m_size}"
+            candidates = [f"F-HN{m_size}", f"F-HNM{m_num}"]
         elif "SPRING WASHER" in combined or "SWM" in combined:
-            target_code = f"F-SW{m_size}"
+            candidates = [f"F-SW{m_size}", f"F-SWM{m_num}"]
         elif "WASHER" in combined or "PWM" in combined:
-            target_code = f"F-PW{m_size}"
+            candidates = [f"F-PW{m_size}", f"F-PWM{m_num}"]
         elif "STUD" in combined:
-            target_code = f"F-ST{m_size}"
+            candidates = [f"F-ST{m_size}", f"F-STM{m_num}"]
         elif any(k in combined for k in ["CSK", "COUNTERSUNK"]):
-            target_code = f"F-ALCSKB{m_num}X{l_val}" if l_val else f"F-ALCSKB{m_num}"
+            candidates = [f"F-ALCSKB{m_num}X{l_val}", f"F-ALCSKB{m_num}X{l_val}MM", f"F-CSKSL{m_num}X{l_val}MM", f"F-ALCSKB{m_num}"]
         elif any(k in combined for k in ["BUTTON HEAD", "BHB"]):
-            target_code = f"F-BHBM{m_num}X{l_val}" if l_val else f"F-BHBM{m_size}"
+            candidates = [f"F-BHBM{m_num}X{l_val}", f"F-BHB{m_num}X{l_val}", f"F-BHB{m_size}", f"F-BHBM{m_size}"]
         elif any(k in combined for k in ["GRUB", "GURB"]):
-            target_code = f"F-GS{m_num}X{l_val}" if l_val else f"F-GS{m_num}"
+            candidates = [f"F-GS{m_num}X{l_val}", f"F-GS{m_num}X{l_val}M", f"F-GS{m_num}"]
         elif "HEX" in combined:
-            target_code = f"F-HB{m_size}X{l_val}" if l_val else f"F-HB{m_size}"
+            candidates = [f"F-HB{m_size}X{l_val}", f"F-HB{m_num}X{l_val}", f"F-HBM{m_num}X{l_val}", f"F-HB{m_size}"]
         else:
-            target_code = f"F-ALB{m_size}X{l_val}" if l_val else f"F-ALB{m_size}"
-            
-        if target_code in MASTER_FASTENERS:
-            return target_code
-            
-        variations = [
-            target_code,
-            f"F-BHBM{m_num}X{l_val}" if l_val else None,
-            f"F-HBM{m_num}X{l_val}" if l_val else None,
-            f"F-HB{m_num}X{l_val}" if l_val else None,
-            f"F-ALCSKB{m_num}X{l_val}MM" if l_val else None,
-            f"F-GS{m_num}X{l_val}M" if l_val else None,
-            f"F-STM{m_num}",
-            f"F-HNM{m_num}",
-            f"F-PWM{m_num}",
-            f"F-SWM{m_num}"
-        ]
-        for var in variations:
-            if var and var in MASTER_FASTENERS:
-                return var
-                
-        return target_code
+            candidates = [f"F-ALB{m_size}X{l_val}", f"F-ALB{m_num}X{l_val}", f"F-ALB{m_size}"]
+
+        for c in candidates:
+            if c and c in MASTER_FASTENERS:
+                return c
+        return candidates[0] if candidates else ""
         
     # 9. BOP
     elif rm_type == "Raw Material-BOP":
