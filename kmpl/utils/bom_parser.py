@@ -286,7 +286,8 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
         row = sw_rows[r]
         if not any(row):
             continue
-        item_no = clean_str(row[c_item] if c_item < len(row) else "")
+        raw_ino = clean_str(row[c_item] if c_item < len(row) else "")
+        item_no = re.sub(r'[\s\n\r]+', '', raw_ino)
         pnum = clean_str(row[c_pnum] if c_pnum < len(row) else "")
         desc = clean_str(row[c_desc] if c_desc < len(row) else "")
         if not item_no and not pnum and not desc:
@@ -319,28 +320,30 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
 
     node_by_item = {n['item_no']: n for n in raw_nodes}
     for n in raw_nodes:
-        parts = n['item_no'].split('.')
-        if len(parts) > 1:
-            parent_key = '.'.join(parts[:-1])
+        ino = n['item_no']
+        if '.' in ino:
+            parent_key = ino.rsplit('.', 1)[0]
             n['parent'] = node_by_item.get(parent_key)
         else:
             n['parent'] = None
 
-        prefix = n['item_no'] + '.'
-        children = [c for c in raw_nodes if c['item_no'].startswith(prefix)]
-        n['is_parent'] = len(children) > 0
-        n['children'] = children
+        prefix = ino + '.'
+        direct_children = [c for c in raw_nodes if c['item_no'].startswith(prefix) and len(c['item_no'].split('.')) == len(ino.split('.')) + 1]
+        real_children = [c for c in direct_children if bool(c['pnum'] or c['desc'] or c['bbl'] or c['bbw'] or c['thk'] or c['length'] or c['wt'])]
+        n['children'] = direct_children
+        n['real_children'] = real_children
+        n['is_parent'] = len(real_children) > 0
 
     base_parts = {}
     for n in raw_nodes:
-        p = n['pnum'].upper()
-        if p and "MIRROR" not in p:
-            base_parts[p] = n
+        p_clean = re.sub(r'\s+', '', n['pnum']).upper()
+        if p_clean and "MIRROR" not in p_clean:
+            base_parts[p_clean] = n
 
     compiled_items = []
     sn = [1]
 
-    def process_node(node, parent_cum_qty=1.0, current_dwg=None):
+    def process_node(node, parent_cum_qty=1.0, current_dwg=""):
         self_qty = parse_number(node['qty']) or 1.0
         cum_qty = parent_cum_qty * self_qty
         pnum = node['pnum']
@@ -349,29 +352,19 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
         is_assy = "ASSY" in pnum.upper() or "ASSY" in desc.upper()
         is_mirror = "MIRROR" in pnum.upper() or "MIRROR" in desc.upper()
 
+        if is_mirror and not node['is_parent']:
+            base_pnum = re.sub(r'(?i)mirror', '', re.sub(r'\s+', '', pnum)).upper()
+            base_node = base_parts.get(base_pnum)
+            if base_node and base_node['is_parent']:
+                for child in base_node['real_children']:
+                    process_node(child, cum_qty, pnum)
+                return
+
         if node['is_parent']:
             effective_dwg = pnum if pnum and not is_assy else current_dwg
-            for child in node['children']:
-                child_parts = child['item_no'].split('.')
-                node_parts = node['item_no'].split('.')
-                if len(child_parts) == len(node_parts) + 1:
-                    process_node(child, cum_qty, effective_dwg)
+            for child in node['real_children']:
+                process_node(child, cum_qty, effective_dwg)
             return
-
-        if is_mirror and not node['is_parent']:
-            base_pnum = re.sub(r'MIRROR', '', pnum, flags=re.IGNORECASE).strip().upper()
-            base_node = None
-            for bp_key, bp_node in base_parts.items():
-                if base_pnum in bp_key:
-                    base_node = bp_node
-                    break
-            if base_node and base_node['is_parent']:
-                for child in base_node['children']:
-                    child_parts = child['item_no'].split('.')
-                    base_parts_arr = base_node['item_no'].split('.')
-                    if len(child_parts) == len(base_parts_arr) + 1:
-                        process_node(child, cum_qty, pnum)
-                return
 
         if not desc and not pnum:
             return
@@ -401,12 +394,18 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
         if full_desc.upper() == "SHEET" and not node['bbl'] and not node['bbw'] and not node['sm_thk'] and not node['thk'] and not node['wt']:
             return
 
-        effective_dwg = current_dwg or pnum
+        effective_dwg = current_dwg or ""
+        if not effective_dwg and (clean_pnum.startswith("PRT_") or "MIRRORPRT_" in clean_pnum.upper()):
+            effective_dwg = clean_pnum
+
+        # Never show assembly identifier or hardware name as fabrication drawing number
+        if effective_dwg.startswith("ASSY_") or any(k in effective_dwg.upper() for k in ["WASHER", "HEX NUT", "HEX BOLT", "CIRCLIP", "STUD", "BOLT", "SCREW"]):
+            effective_dwg = ""
 
         mat = node['mat']
         if not mat and node.get('parent'):
             mat = node['parent']['mat']
-        if not mat or "NOT SPECIFIED" in mat.upper() or mat == "AS PER BOM":
+        if not mat or "NOT SPECIFIED" in mat.upper() or mat == "AS PER BOM" or mat == "Material":
             mat = "AISI 304"
 
         l_val, w_val, t_val = extract_dimensions_from_desc(
@@ -415,11 +414,13 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
         )
 
         if ("WEAR STRIP" in full_desc.upper() or "WEARSTRIP" in full_desc.upper()) and not l_val:
-            if node.get('parent'):
-                for sib in node['parent']['children']:
-                    if sib['bbl']:
-                        l_val = parse_number(sib['bbl'])
-                        break
+            l_desc_match = re.search(r'L\s*[-=]?\s*(\d+(?:\.\d+)?)', full_desc, re.I)
+            if l_desc_match:
+                l_val = float(l_desc_match.group(1))
+            elif node.get('parent'):
+                bbls = [parse_number(sib['bbl']) for sib in node['parent']['children'] if sib['bbl'] and parse_number(sib['bbl']) > 50]
+                if bbls:
+                    l_val = max(bbls)
 
         rm_type = classify_rm_type(full_desc, effective_dwg, mat)
         if "STUD" in full_desc.upper():
@@ -479,7 +480,6 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
                 item_code = "RM-UR120MX1000M"
             unit = "Kg"
         elif rm_type == "Raw Material-PLATE" and not item_code:
-            # Fallback for plates without explicit thickness
             t_fallback = t_val or 2.0
             t_str = f"{t_fallback:g}"
             item_code = f"RM-SS{t_str}X1500M"
@@ -489,11 +489,18 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
             if rm_type in ["Raw Material-FASTENER", "Raw Material-BOP"]:
                 unit = "Nos." if "FASTENER" in rm_type or "CIRCLIP" in u_desc else ("No." if "BEARING" in u_desc or "CASTOR" in u_desc else "Kg")
 
+        # Clean any accidental 'None' in fastener item codes
+        if rm_type == "Raw Material-FASTENER" and "None" in item_code:
+            if l_val:
+                item_code = item_code.replace("None", str(int(round(l_val))))
+            else:
+                item_code = item_code.replace("XNone", "").replace("None", "")
+
         raw_wt = parse_number(node['wt'])
         if raw_wt and raw_wt > 0 and rm_type not in ["Raw Material-FASTENER", "Raw Material-BOP"]:
             unit_wt = round(raw_wt / 1000.0, 5)
         else:
-            calculated = calculate_item_weight(rm_type, l_val, w_val, t_val, mat, item_code=item_code)
+            calculated = calculate_item_weight(rm_type, l_val, w_val, t_val, mat, item_code=item_code, desc=full_desc)
             unit_wt = round(calculated, 5) if calculated else 0.0
 
         if unit in ["Nos.", "No."] and rm_type in ["Raw Material-FASTENER", "Raw Material-BOP"]:

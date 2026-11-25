@@ -299,7 +299,8 @@ def classify_rm_type(desc: str, pnum: str = "", moc: str = "") -> str:
         "BEARING", "CASTOR", "GLAND", "VALVE", "SPROCKET", "MOTOR", "PUMP",
         "GAUGE", "GUAGE", "SEAL", "HOSE", "BEND", "UNION", "CLAMP", "CHAIN",
         "FILTER", "REGULATOR", "LUBRICATOR", "LOCKING DEVICE", "LOCK WASHER", "LOCK NUT",
-        "ABRAZADERA", "ENCLOSURE", "PUSH BUTTON", "SWITCH", "INDICATOR", "GEAR", "HELICAL"
+        "ABRAZADERA", "ENCLOSURE", "PUSH BUTTON", "SWITCH", "INDICATOR", "GEAR", "HELICAL",
+        "WEAR STRIP", "WEARSTRIP", "UB01", "UB1", "PU-LAGGING", "LAGGING", "WHEEL"
     ]):
         return "Raw Material-BOP"
         
@@ -375,6 +376,8 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
     elif rm_type == "Raw Material-PIPE":
         if "168.3" in u_desc or (width and abs(width - 168.3) < 1):
             return "RM-P168.3X3.4THK"
+        if "101.6" in u_desc or (width and abs(width - 101.6) < 2):
+            return "RM-SHP101.6X3.2"
         if re.search(r'\b73(?:\.03)?\b', u_desc) or (width and abs(width - 73) < 1):
             if is_ms or any(k in combined for k in ["SCH 40", "SCH-40", "THK-4", "THK 4"]):
                 return "RM-MRP73X4M"
@@ -413,8 +416,9 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
             
         # UHMWPE / UHMW rod
         if any(k in combined or k in u_moc for k in ["UHMWPE", "UHMW"]):
-            if d <= 55: return "RM-UR55M"
-            else: return "RM-UR75M"
+            if d <= 60: return "RM-UR60M"
+            elif d <= 120: return "RM-UR120MX1000M"
+            else: return "RM-UR120MX1000M"
             
         # Stainless Steel Rods (Machined Diameter -> Commercial Stock Size)
         if d <= 12: return "RM-SR12M"
@@ -438,15 +442,38 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
         
     # 8. FASTENERS
     elif rm_type == "Raw Material-FASTENER":
-        m_match = re.search(r'\b(M\d+)\b', combined)
-        m_size = m_match.group(1) if m_match else "M8"
-        m_num = m_size[1:]
+        m_match = re.search(r'\bM(\d+)\b', combined, re.I)
+        if not m_match:
+            m_match = re.search(r'M(\d+)(?:[xX\s\-]|\b)', combined, re.I)
+        m_num = m_match.group(1) if m_match else "8"
+        m_size = f"M{m_num}"
         
         l_match = re.search(r'(?:L\s*[-=]?\s*|X\s*L?\s*[-=]?\s*)(\d+)', combined)
         l_val = l_match.group(1) if l_match else None
-        
+        if not l_val and length:
+            try:
+                l_float = float(length)
+                if l_float > 0:
+                    l_val = str(int(round(l_float)))
+            except:
+                pass
+
         candidates = []
-        if "NUT" in combined:
+        if any(k in combined for k in ["BUTTON HEAD", "BHB"]):
+            if l_val:
+                candidates = [f"F-BHBM{m_num}X{l_val}", f"F-BHB{m_num}X{l_val}"]
+            candidates.extend([f"F-BHBM{m_num}", f"F-BHB{m_size}"])
+        elif any(k in combined for k in ["CSK", "COUNTERSUNK"]):
+            if l_val:
+                candidates = [f"F-ALCSKB{m_num}X{l_val}", f"F-ALCSKB{m_num}X{l_val}MM", f"F-CSKSL{m_num}X{l_val}MM"]
+            candidates.append(f"F-ALCSKB{m_num}")
+        elif any(k in combined for k in ["HEX BOLT", "HEX HEAD BOLT"]) or ("BOLT" in combined and "NUT" in combined):
+            if l_val:
+                candidates = [f"F-HB{m_size}X{l_val}", f"F-HB{m_num}X{l_val}", f"F-HBM{m_num}X{l_val}"]
+            candidates.extend([f"F-HB{m_size}", f"F-HBM{m_num}"])
+        elif "NYLOCK" in combined:
+            candidates = [f"F-HNNYM{m_num}", f"F-HNNY{m_size}"]
+        elif "HEX NUT" in combined or "NUT" in combined:
             candidates = [f"F-HN{m_size}", f"F-HNM{m_num}"]
         elif "SPRING WASHER" in combined or "SWM" in combined:
             candidates = [f"F-SW{m_size}", f"F-SWM{m_num}"]
@@ -454,16 +481,18 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
             candidates = [f"F-PW{m_size}", f"F-PWM{m_num}"]
         elif "STUD" in combined:
             candidates = [f"F-ST{m_size}", f"F-STM{m_num}"]
-        elif any(k in combined for k in ["CSK", "COUNTERSUNK"]):
-            candidates = [f"F-ALCSKB{m_num}X{l_val}", f"F-ALCSKB{m_num}X{l_val}MM", f"F-CSKSL{m_num}X{l_val}MM", f"F-ALCSKB{m_num}"]
-        elif any(k in combined for k in ["BUTTON HEAD", "BHB"]):
-            candidates = [f"F-BHBM{m_num}X{l_val}", f"F-BHB{m_num}X{l_val}", f"F-BHB{m_size}", f"F-BHBM{m_size}"]
         elif any(k in combined for k in ["GRUB", "GURB"]):
-            candidates = [f"F-GS{m_num}X{l_val}", f"F-GS{m_num}X{l_val}M", f"F-GS{m_num}"]
-        elif "HEX" in combined:
-            candidates = [f"F-HB{m_size}X{l_val}", f"F-HB{m_num}X{l_val}", f"F-HBM{m_num}X{l_val}", f"F-HB{m_size}"]
+            if l_val:
+                candidates = [f"F-GS{m_num}X{l_val}", f"F-GS{m_num}X{l_val}M"]
+            candidates.append(f"F-GS{m_num}")
+        elif "HEX" in combined or "BOLT" in combined:
+            if l_val:
+                candidates = [f"F-HB{m_size}X{l_val}", f"F-HB{m_num}X{l_val}", f"F-HBM{m_num}X{l_val}"]
+            candidates.extend([f"F-HB{m_size}", f"F-HBM{m_num}"])
         else:
-            candidates = [f"F-ALB{m_size}X{l_val}", f"F-ALB{m_num}X{l_val}", f"F-ALB{m_size}"]
+            if l_val:
+                candidates = [f"F-ALB{m_size}X{l_val}", f"F-ALB{m_num}X{l_val}"]
+            candidates.append(f"F-ALB{m_size}")
 
         for c in candidates:
             if c and c in MASTER_FASTENERS:
@@ -474,6 +503,14 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
     elif rm_type == "Raw Material-BOP":
         if "ABRAZADERA" in combined or ("HOSE" in combined and "CLAMP" in combined):
             return "FT-HCLAMP1\""
+        if "UB01" in combined or "UB1" in combined or "WEAR STRIP" in combined or "WEARSTRIP" in combined:
+            return "HW-WSUB01-2503"
+        if "PU-LAGGING" in combined or "LAGGING" in combined:
+            return "RM-PULAGGING10"
+        if "UCFL 206" in combined or "UCFL206" in combined or "FLANGE BLOCK BEARING" in combined:
+            return "BE-UCFL206"
+        if "CASTOR" in combined or "WHEEL" in combined:
+            return "HW-TWWB42140K"
 
         if frappe and hasattr(frappe, "db") and frappe.db:
             try:
