@@ -1,3 +1,4 @@
+import re
 import math
 from collections import defaultdict
 from .item_matcher import STD_SHEET_WEIGHTS, WEIGHT_PER_METER
@@ -186,6 +187,19 @@ def compile_summary(bom_items: list, project_no: str = "") -> list:
             unit = "No."
             gen_desc = data["desc"]
 
+        thk_val = data["thk"]
+        if not thk_val:
+            if data["is_fastener"]:
+                m = re.search(r'\bM(\d+)\b', f"{icode} {data['desc']}", re.I)
+                if not m:
+                    m = re.search(r'M(\d+)', f"{icode} {data['desc']}", re.I)
+                if m:
+                    thk_val = f"M{m.group(1)}"
+            elif data["is_plate"]:
+                mt = re.search(r'RM-[A-Z]+(\d+(?:\.\d+)?)X', icode)
+                if mt:
+                    thk_val = float(mt.group(1))
+
         summary_rows.append({
             "idx": sr,
             "project_no": project_no,
@@ -193,7 +207,7 @@ def compile_summary(bom_items: list, project_no: str = "") -> list:
             "item_code": icode,
             "rm_type": rm_type,
             "description": data["desc"],
-            "thk_mm": data["thk"],
+            "thk_mm": thk_val,
             "weight_kg": tot_wt if tot_wt > 0 else None,
             "unit_weight": "Kg" if tot_wt > 0 else None,
             "general_description": gen_desc,
