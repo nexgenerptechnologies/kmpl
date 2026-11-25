@@ -40,6 +40,10 @@ def calculate_item_weight(rm_type: str, length: float, width: float, thk: float,
         return round((wt_per_m / 1000.0) * length, 5)
         
     # 3. Geometric calculation if profile not in table
+    if rm_type == "Raw Material-ISA ANGLE" and length and width and thk:
+        area = (2 * width - thk) * thk
+        return round(area * length * density, 5)
+
     if rm_type == "Raw Material-SQ PIPE" and length and width and thk:
         # Cross sectional area of square tube = (width^2 - (width - 2*thk)^2)
         inner = max(0.0, width - 2 * thk)

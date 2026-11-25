@@ -115,7 +115,9 @@ WEIGHT_PER_METER = {
     "RM-SSQP50X3M": 4.12,
     
     # Angles
+    "RM-SA30X3M": 1.36,
     "RM-SA40X3M": 1.80,
+    "RM-SA50X5M": 3.77,
     
     # Round pipes
     "RM-SRP33.4X3M": 2.13,
@@ -125,6 +127,8 @@ WEIGHT_PER_METER = {
     "RM-SRP60.3X3.91M": 4.31,
     "RM-SRP73X5M": 8.75,
     "RM-MRP73X4M": 6.80,
+    "RM-SRP101.6X1.65M": 4.10,
+    "RM-SHP101.6X3.2": 7.82,
     "RM-SRP114X5M": 12.18,
     "RM-P168.3X3.4THK": 13.85,
     
@@ -133,6 +137,7 @@ WEIGHT_PER_METER = {
     "RM-SR16M": 1.60,
     "RM-SR20M": 2.53,
     "RM-SR25M": 3.95,
+    "RM-SR30M": 5.55,
     "RM-SR35MM": 5.70,
     "RM-SR40M": 10.10,
     "RM-SR45M": 12.80,
@@ -148,7 +153,12 @@ WEIGHT_PER_METER = {
     "RM-BR65M": 28.50,
     "RM-TRD65": 7.30,
     "RM-UR55M": 2.30,
+    "RM-UR60M": 2.65,
     "RM-UR75M": 4.30,
+    "RM-UR120MX1000M": 10.63,
+    
+    # Hardware & Wear Strips
+    "HW-WSUB01-2503": 0.20,
     
     # Square bar
     "RM-SB40M": 12.85
