@@ -294,7 +294,11 @@ def classify_rm_type(desc: str, pnum: str = "", moc: str = "") -> str:
     if "BLOCK" in combined and "BEARING BLOCK" not in combined and "UCP" not in combined:
         return "Raw Material-BLOCK"
         
-    # 8. Bought out parts (BOP) - Check before general plate/sheet
+    # 8. Plates, sheets, brackets, cleats, and trays (Check first before generic BOP terms)
+    if any(k in combined for k in ["PLATE", "SHEET", "CHECKER SHEET", "END PLATE", "FLANGE", "COVER", "HOPPER", "BKT", "BRACKET", "CLEAT", "TRAY", "FRAME"]):
+        return "Raw Material-PLATE"
+
+    # 9. Bought out parts (BOP)
     if any(k in combined for k in [
         "BEARING", "CASTOR", "GLAND", "VALVE", "SPROCKET", "MOTOR", "PUMP",
         "GAUGE", "GUAGE", "SEAL", "HOSE", "BEND", "UNION", "CLAMP", "CHAIN",
@@ -303,10 +307,6 @@ def classify_rm_type(desc: str, pnum: str = "", moc: str = "") -> str:
         "WEAR STRIP", "WEARSTRIP", "UB01", "UB1", "PU-LAGGING", "LAGGING", "WHEEL"
     ]):
         return "Raw Material-BOP"
-        
-    # 9. Plates and sheets
-    if any(k in combined for k in ["PLATE", "SHEET", "CHECKER SHEET", "END PLATE", "FLANGE", "COVER", "HOPPER", "BKT", "BRACKET"]):
-        return "Raw Material-PLATE"
         
     return "Raw Material-PLATE"
 
@@ -503,13 +503,9 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
     elif rm_type == "Raw Material-BOP":
         if "ABRAZADERA" in combined or ("HOSE" in combined and "CLAMP" in combined):
             return "FT-HCLAMP1\""
-        if "UB01" in combined or "UB1" in combined or "WEAR STRIP" in combined or "WEARSTRIP" in combined:
-            return "HW-WSUB01-2503"
-        if "PU-LAGGING" in combined or "LAGGING" in combined:
-            return "RM-PULAGGING10"
         if "UCFL 206" in combined or "UCFL206" in combined or "FLANGE BLOCK BEARING" in combined:
             return "BE-UCFL206"
-        if "CASTOR" in combined or "WHEEL" in combined:
+        if ("CASTOR" in combined or "WHEEL" in combined) and not any(p in combined for p in ["PLATE", "BKT", "BRACKET", "FRAME"]):
             return "HW-TWWB42140K"
 
         if frappe and hasattr(frappe, "db") and frappe.db:

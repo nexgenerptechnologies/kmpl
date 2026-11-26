@@ -200,6 +200,24 @@ def compile_summary(bom_items: list, project_no: str = "") -> list:
                 if mt:
                     thk_val = float(mt.group(1))
 
+        # Determine weight_kg and unit_weight strictly based on item category
+        # Fasteners and BOP components must NEVER dump piece counts under weight in Kg!
+        if data["is_fastener"]:
+            if "BOLT" in data["desc"].upper() or "SCREW" in data["desc"].upper():
+                # For bolts, standard template records bolt length in mm in this column
+                m_len = re.search(r'L\s*[-=]?\s*(\d+(?:\.\d+)?)', f"{icode} {data['desc']}", re.I)
+                wt_col = int(round(float(m_len.group(1)))) if m_len else None
+                u_wt_col = None
+            else:
+                wt_col = None
+                u_wt_col = None
+        elif data["is_bop"]:
+            wt_col = None
+            u_wt_col = None
+        else:
+            wt_col = tot_wt if tot_wt > 0 else None
+            u_wt_col = "Kg" if tot_wt > 0 else None
+
         summary_rows.append({
             "idx": sr,
             "project_no": project_no,
@@ -208,8 +226,8 @@ def compile_summary(bom_items: list, project_no: str = "") -> list:
             "rm_type": rm_type,
             "description": data["desc"],
             "thk_mm": thk_val,
-            "weight_kg": tot_wt if tot_wt > 0 else None,
-            "unit_weight": "Kg" if tot_wt > 0 else None,
+            "weight_kg": wt_col,
+            "unit_weight": u_wt_col,
             "general_description": gen_desc,
             "length_qty": length_qty,
             "unit": unit,

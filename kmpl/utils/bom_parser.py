@@ -439,17 +439,17 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
             rm_type = "Raw Material-BOP"
             item_code = "BE-UCFL206"
             unit = "No."
-        elif "CASTOR" in u_desc or "CASTOR" in u_pnum:
+        elif ("CASTOR" in u_desc or "CASTOR" in u_pnum) and not any(p in u_desc for p in ["PLATE", "BKT", "BRACKET", "FRAME"]):
             rm_type = "Raw Material-BOP"
             item_code = "HW-TWWB42140K"
             unit = "Nos."
         elif "WEAR STRIP" in u_desc or "WEARSTRIP" in u_desc:
             rm_type = "Raw Material-BOP"
-            item_code = "HW-WSUB01-2503"
+            item_code = ""
             unit = "Mtr"
         elif "PU-LAGGING" in u_desc:
             rm_type = "Raw Material-BOP"
-            item_code = "RM-PULAGGING10"
+            item_code = ""
             unit = "Nos."
         elif "EXTERNAL CIRCLIP" in u_desc or "CIRCLIP" in u_desc:
             rm_type = "Raw Material-FASTENER"
@@ -463,7 +463,7 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
             mstud_m = re.search(r'M\s*(\d+)', u_desc)
             sz = mstud_m.group(1) if mstud_m else "10"
             item_code = f"F-STM{sz}"
-            unit = "Nos."
+            unit = "Mtr"
         elif "COUNTERSUNK" in u_desc or "CSK" in u_desc:
             item_code = "F-ALCSKB6X20"
             unit = "Nos."
@@ -480,10 +480,13 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
                 item_code = "RM-UR120MX1000M"
             unit = "Kg"
         elif rm_type == "Raw Material-PLATE" and not item_code:
-            t_fallback = t_val or 2.0
-            t_str = f"{t_fallback:g}"
-            item_code = f"RM-SS{t_str}X1500M"
-            unit = "Kg"
+            if t_val:
+                t_str = f"{t_val:g}"
+                item_code = f"RM-SS{t_str}X1500M"
+                unit = "Kg"
+            else:
+                item_code = ""
+                unit = "Kg"
         else:
             unit = "Kg"
             if rm_type in ["Raw Material-FASTENER", "Raw Material-BOP"]:
@@ -504,8 +507,10 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
             unit_wt = round(calculated, 5) if calculated else 0.0
 
         if unit in ["Nos.", "No."] and rm_type in ["Raw Material-FASTENER", "Raw Material-BOP"]:
+            unit_wt = None
             total_wt = cum_qty
         elif unit == "Mtr":
+            unit_wt = round(l_val / 1000.0 if l_val else 1.0, 3)
             total_wt = round(cum_qty * (l_val / 1000.0 if l_val else 1.0), 3)
         else:
             total_wt = round(cum_qty * unit_wt, 3)
