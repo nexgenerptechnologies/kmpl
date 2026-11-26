@@ -401,8 +401,10 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
         m_dia = re.search(r'(?:O\.?D\.?|DIA)\s*[-=]?\s*(\d+(?:\.\d+)?)', combined)
         if m_dia:
             d = float(m_dia.group(1))
+        elif width or thk:
+            d = float(width or thk)
         else:
-            d = width or thk or 25.0
+            return "" # Dimensions missing in CAD export
         
         # Brass rod
         if "BRASS" in u_moc or "BRASS" in combined:

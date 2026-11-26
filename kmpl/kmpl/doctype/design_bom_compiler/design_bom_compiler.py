@@ -75,15 +75,29 @@ class DesignBOMCompiler(Document):
         summary_rows = compile_summary(bom_items, project_no=self.project_no or "2559-01")
         self.set("summary_items", [])
         for srow in summary_rows:
+            s_rm_type = srow.get("rm_type") or ""
+            s_wt = srow.get("weight_kg")
+            s_u_wt = srow.get("unit_weight")
+            if s_rm_type in ["Raw Material-FASTENER", "Raw Material-BOP"]:
+                if "BOLT" in (srow.get("description") or "").upper() and s_wt:
+                    try:
+                        s_wt = float(s_wt)
+                    except Exception:
+                        s_wt = None
+                    s_u_wt = None
+                else:
+                    s_wt = None
+                    s_u_wt = None
+
             self.append("summary_items", {
                 "project_no": self.project_no,
                 "category": srow.get("category", "C"),
                 "item_code": srow.get("item_code"),
-                "rm_type": srow.get("rm_type"),
+                "rm_type": s_rm_type,
                 "description": srow.get("description"),
                 "thk_mm": str(srow.get("thk_mm")) if srow.get("thk_mm") is not None else None,
-                "weight_kg": srow.get("weight_kg"),
-                "unit_weight": srow.get("unit_weight"),
+                "weight_kg": s_wt,
+                "unit_weight": s_u_wt,
                 "general_description": srow.get("general_description"),
                 "length_qty": srow.get("length_qty"),
                 "unit": srow.get("unit"),

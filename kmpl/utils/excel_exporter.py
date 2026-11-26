@@ -132,6 +132,26 @@ def export_final_bom_excel(output_path: str, bom_header: dict, bom_items: list, 
         cell.border = border_cell
         
     for r_idx, sitm in enumerate(summary_items, 3):
+        rm_type_sum = sitm.get("rm_type") or ""
+        wt_val = sitm.get("weight_kg")
+        u_wt_val = sitm.get("unit_weight")
+        
+        # Ensure Fasteners and BOP components NEVER export 0 and Kg!
+        if rm_type_sum in ["Raw Material-FASTENER", "Raw Material-BOP"]:
+            if "BOLT" in (sitm.get("description") or "").upper() and wt_val:
+                try:
+                    wt_val = int(round(float(wt_val))) if float(wt_val) > 0 else None
+                except Exception:
+                    wt_val = None
+                u_wt_val = None
+            else:
+                wt_val = None
+                u_wt_val = None
+        else:
+            if not wt_val or float(wt_val) <= 0:
+                wt_val = None
+                u_wt_val = None
+
         row_vals = [
             sitm.get("idx", r_idx - 2),
             sitm.get("project_no", project_no),
@@ -140,8 +160,8 @@ def export_final_bom_excel(output_path: str, bom_header: dict, bom_items: list, 
             sitm.get("rm_type"),
             sitm.get("description"),
             sitm.get("thk_mm"),
-            sitm.get("weight_kg"),
-            sitm.get("unit_weight"),
+            wt_val,
+            u_wt_val,
             sitm.get("general_description"),
             sitm.get("length_qty"),
             sitm.get("unit"),

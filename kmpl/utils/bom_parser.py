@@ -427,6 +427,8 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
             rm_type = "Raw Material-FASTENER"
         elif any(k in full_desc.upper() for k in ["WASHER", "HEX NUT", "HEX BOLT", "CIRCLIP", "CSK", "COUNTERSUNK", "BUTTON HEAD", "NYLOCK"]):
             rm_type = "Raw Material-FASTENER"
+        elif any(k in full_desc.upper() for k in ["PLATE", "SHEET", "CHECKER SHEET", "END PLATE", "FLANGE", "COVER", "HOPPER", "BKT", "BRACKET", "CLEAT", "TRAY", "FRAME"]):
+            rm_type = "Raw Material-PLATE"
         elif any(k in full_desc.upper() or k in clean_pnum.upper() for k in ["BEARING", "CASTOR", "WEAR STRIP", "WEARSTRIP", "PU-LAGGING", "FLANGE BLOCK"]):
             rm_type = "Raw Material-BOP"
 
@@ -439,10 +441,17 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
             rm_type = "Raw Material-BOP"
             item_code = "BE-UCFL206"
             unit = "No."
-        elif ("CASTOR" in u_desc or "CASTOR" in u_pnum) and not any(p in u_desc for p in ["PLATE", "BKT", "BRACKET", "FRAME"]):
+        elif "CASTOR WHEEL MT. PLATE" in u_desc or ("CASTOR" in u_desc and any(p in u_desc for p in ["PLATE", "BKT", "BRACKET", "FRAME"])):
+            rm_type = "Raw Material-PLATE"
+            item_code = ""
+            unit = "Nos."
+        elif "CASTOR" in u_desc or "CASTOR" in u_pnum:
             rm_type = "Raw Material-BOP"
             item_code = "HW-TWWB42140K"
             unit = "Nos."
+        elif "SCRAPPER" in u_desc and (not l_val or not w_val or not t_val):
+            item_code = ""
+            unit = "Kg"
         elif "WEAR STRIP" in u_desc or "WEARSTRIP" in u_desc:
             rm_type = "Raw Material-BOP"
             item_code = ""
