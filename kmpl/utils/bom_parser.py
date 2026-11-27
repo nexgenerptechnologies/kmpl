@@ -444,7 +444,7 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
         elif "CASTOR WHEEL MT. PLATE" in u_desc or ("CASTOR" in u_desc and any(p in u_desc for p in ["PLATE", "BKT", "BRACKET", "FRAME"])):
             rm_type = "Raw Material-PLATE"
             item_code = ""
-            unit = "Nos."
+            unit = "Kg"
         elif "CASTOR" in u_desc or "CASTOR" in u_pnum:
             rm_type = "Raw Material-BOP"
             item_code = "HW-TWWB42140K"
