@@ -255,7 +255,7 @@ def classify_rm_type(desc: str, pnum: str = "", moc: str = "") -> str:
     # 1. Fasteners
     if any(k in combined for k in [
         "BOLT", "NUT", "WASHER", "STUD", "GRUB SCREW", "GURB SCREW",
-        "ALLEN CAP", "CSK", "COUNTERSUNK", "BUTTON HEAD", "SCREW"
+        "ALLEN CAP", "CSK", "COUNTERSUNK", "BUTTON HEAD", "SCREW", "BLIND RIVET", "RIVET"
     ]):
         if "LEVELING BOLT" not in combined and "MOTOR TILTING" not in combined and "SCREW-CLOCKWISE" not in combined and "SCREW-ANTICLOCK" not in combined and not re.search(r'\bLOCK\s*NUT\b', combined):
             return "Raw Material-FASTENER"
@@ -263,7 +263,7 @@ def classify_rm_type(desc: str, pnum: str = "", moc: str = "") -> str:
             return "Raw Material-FASTENER"
         
     # 2. Square / Rectangular pipes
-    if any(k in combined for k in ["TUBE, SQUARE", "TUBE, RECTANGULAR", "SQ. PIPE", "SQUARE TUBE", "SQ PIPE", "SHS", "RHS"]):
+    if any(k in combined for k in ["TUBE, SQUARE", "TUBE, RECTANGULAR", "SQ. PIPE", "SQ, PIPE", "SQUARE TUBE", "SQ PIPE", "SHS", "RHS"]):
         return "Raw Material-SQ PIPE"
         
     # 3. Angle
@@ -301,7 +301,7 @@ def classify_rm_type(desc: str, pnum: str = "", moc: str = "") -> str:
         "FILTER", "REGULATOR", "LUBRICATOR", "LOCKING DEVICE", "LOCK WASHER", "LOCK NUT",
         "ABRAZADERA", "ENCLOSURE", "PUSH BUTTON", "SWITCH", "INDICATOR", "GEAR", "HELICAL",
         "WEAR STRIP", "WEARSTRIP", "UB01", "UB1", "PU-LAGGING", "LAGGING", "CHAIN WHEEL",
-        "SLIP ON FLANGE", "90L ", "45L ", "REDUCER", "ELBOW", "OMRON", "SENSOR", "PT-100", "SYPHON", "SEW", "DARSHANA"
+        "SLIP ON FLANGE", "90L ", "45L ", "REDUCER", "ELBOW", "OMRON", "SENSOR", "PT-100", "SYPHON", "SEW", "DARSHANA", "JUNCTION BOX"
     ]) and not any(p in combined for p in ["PAD PLATE", "MTG PLATE", "MT. PLATE", "PLATE HOLDER"]):
         return "Raw Material-BOP"
 
@@ -365,8 +365,8 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
     elif rm_type == "Raw Material-SQ PIPE":
         if "RECTANGULAR" in combined or "RHS" in combined:
             return ""
-        mw = re.search(r'(?:SQUARE|SQ\.?\s*PIPE|TUBE,?\s*SQUARE)\s*(\d+(?:\.\d+)?)\s*[xX*]\s*(\d+(?:\.\d+)?)\s*[xX*]\s*(\d+(?:\.\d+)?)', combined)
-        mshs = re.search(r'(?:SHS|SQ\.?\s*PIPE)\s*(\d+(?:\.\d+)?)\s*[xX*]\s*(?:THK\s*[-=]?\s*)?(\d+(?:\.\d+)?)', combined)
+        mw = re.search(r'(?:SQUARE|SQ[.,]?\s*PIPE|TUBE,?\s*SQUARE)\s*(\d+(?:\.\d+)?)\s*[xX*]\s*(\d+(?:\.\d+)?)\s*[xX*]\s*(\d+(?:\.\d+)?)', combined)
+        mshs = re.search(r'(?:SHS|SQ[.,]?\s*PIPE)\s*(\d+(?:\.\d+)?)\s*[xX*]\s*(?:THK\s*[-=]?\s*)?(\d+(?:\.\d+)?)', combined)
         if mw:
             w = int(round(float(mw.group(1))))
             t = int(round(float(mw.group(3))))
@@ -512,6 +512,8 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
             if l_val:
                 candidates = [f"F-HB{m_size}X{l_val}", f"F-HB{m_num}X{l_val}", f"F-HBM{m_num}X{l_val}"]
             candidates.extend([f"F-HB{m_size}", f"F-HBM{m_num}"])
+        elif "RIVET" in combined:
+            return ""
         else:
             if l_val:
                 candidates = [f"F-ALB{m_size}X{l_val}", f"F-ALB{m_num}X{l_val}"]
