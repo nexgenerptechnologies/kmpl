@@ -50,12 +50,23 @@ def extract_dimensions_from_desc(desc: str, length_col=None, bb_l=None, bb_w=Non
         l_len = float(msq.group(2))
         return l_len, sz, sz
         
-    # STUD pattern: STUD M24.00 X L 200.00, STUD, M10 X L-38, STUD M 10.000000 X 1.5, STUD M12X40
+    # STUD pattern: STUD M24.00 X L 200.00, STUD, M10 X L-38, STUD M 10.000000 X 1.5, STUD M24.00 X 3.0 (with LENGTH col 200)
     if "STUD" in u_desc:
-        mstud_l = re.search(r'(?:L\s*[-=]?\s*|M\s*\d+(?:\.\d+)?\s*[xX*]\s*(?:L\s*[-=]?\s*)?)(\d+(?:\.\d+)?)', u_desc)
+        mstud_l_explicit = re.search(r'\bL\s*[-=]?\s*(\d+(?:\.\d+)?)', u_desc)
+        mstud_x = re.search(r'M\s*\d+(?:\.\d+)?\s*[xX*]\s*(\d+(?:\.\d+)?)', u_desc)
         mstud_m = re.search(r'M\s*(\d+(?:\.\d+)?)', u_desc)
         thk_sz = f"M{int(float(mstud_m.group(1)))}" if mstud_m else None
-        l_len = float(mstud_l.group(1)) if mstud_l else (parse_number(length_col) or 0.0)
+        col_len = parse_number(length_col)
+        if mstud_l_explicit:
+            l_len = float(mstud_l_explicit.group(1))
+        elif mstud_x and float(mstud_x.group(1)) >= 6:
+            l_len = float(mstud_x.group(1))
+        elif col_len and col_len >= 6:
+            l_len = col_len
+        elif mstud_x:
+            l_len = float(mstud_x.group(1))
+        else:
+            l_len = col_len or 0.0
         return l_len, 0.0, thk_sz
     
     # NB PIPE pattern: 1.5 S10, 2 S10, 2.5 S10, 4 S40, 6 S40, 10 S10, ROUND PIPE O.D 2 INCH NB SCH 10
@@ -76,30 +87,52 @@ def extract_dimensions_from_desc(desc: str, length_col=None, bb_l=None, bb_w=Non
         p_len = parse_number(length_col) or parse_number(bb_l)
         return p_len, od_mm, thk_mm
 
-    # PIPE pattern: PIPE OD-101.6 x 410, SCH-20
-    mpipe = re.search(r'PIPE\s*(?:O\.?D\.?[-= ]*)?(\d+(?:\.\d+)?)\s*[xX*]\s*(?:L\s*[-=]?\s*)?(\d+(?:\.\d+)?)', u_desc)
+    # PIPE pattern: PIPE OD-101.6 x 410, SCH-20 or PIPE 60.33 X 4.0 (LENGTH=856) or PIPE Ø33.4x2.11 (LENGTH=50)
+    mpipe = re.search(r'PIPE\s*(?:O\.?D\.?[-= ]*|[Øø]\s*)?(\d+(?:\.\d+)?)\s*[xX*]\s*(?:L\s*[-=]?\s*)?(\d+(?:\.\d+)?)', u_desc)
     if mpipe:
         od = float(mpipe.group(1))
-        p_len = float(mpipe.group(2))
+        v2 = float(mpipe.group(2))
+        col_len = parse_number(length_col) or parse_number(bb_l)
+        if v2 <= 25 and col_len:
+            return col_len, od, v2
+        p_len = v2
         thk_val = 3.0 if "SCH-20" in u_desc or "SCH 20" in u_desc else (parse_number(bb_thk) or 2.77)
         return p_len, od, thk_val
 
-    # ROUND BAR / ROD with diameter symbol: Round bar-ø28x16, ROD.-ø7x725
-    m_bar_phi = re.search(r'(?:ROUND\s*BAR|ROD)[.\-\s]*[Øø]\s*(\d+(?:\.\d+)?)\s*[xX*]\s*(\d+(?:\.\d+)?)', u_desc)
+    # PIPE single OD pattern: PU PIPE O.D 10.00 (with LENGTH=1000)
+    mpipe_single = re.search(r'PIPE\s*(?:O\.?D\.?[-= ]*|[Øø]\s*)(\d+(?:\.\d+)?)\b', u_desc)
+    if mpipe_single and (length_col or bb_l):
+        od = float(mpipe_single.group(1))
+        p_len = parse_number(length_col) or parse_number(bb_l)
+        thk_val = parse_number(bb_thk) or (1.5 if od <= 15 else 2.77)
+        return p_len, od, thk_val
+
+    # SHS / Square / Rectangular Tube pattern: SHS 80.00 X THK-3.00
+    mshs = re.search(r'(?:SHS|RHS|SQ\.?\s*PIPE)\s*(\d+(?:\.\d+)?)\s*[xX*]\s*(?:THK\s*[-=]?\s*)?(\d+(?:\.\d+)?)', u_desc)
+    if mshs:
+        w = float(mshs.group(1))
+        t = float(mshs.group(2))
+        l = parse_number(length_col) or parse_number(bb_l) or w
+        return l, w, t
+
+    # ROUND BAR / ROD with diameter symbol: Round bar-ø28x16, ROD.-ø7x725, ROD Ø45xL-55, Ø30 xL-1184
+    m_bar_phi = re.search(r'(?:ROUND\s*BAR|ROD)[.\-\s]*[Øø]\s*(\d+(?:\.\d+)?)\s*[xX*]\s*(?:L\s*[-=]?\s*)?(\d+(?:\.\d+)?)', u_desc)
+    if not m_bar_phi:
+        m_bar_phi = re.search(r'[Øø]\s*(\d+(?:\.\d+)?)\s*[xX*]\s*L\s*[-=]?\s*(\d+(?:\.\d+)?)', u_desc)
     if m_bar_phi:
         od = float(m_bar_phi.group(1))
         r_len = float(m_bar_phi.group(2))
         return r_len, od, od
 
     # ROD pattern: ROD OD, 35 x 550 or ROD - DIA. - 120.0 X L - 43.0 or ROD O.D 20.000000 X L- 424.0
-    mrod = re.search(r'ROD[,\s]*(?:[- ]*(?:O\.?D\.?|DIA\.?)[-=, ]*)?(\d+(?:\.\d+)?)\s*[xX*]\s*(?:L\s*[-=]?\s*)?(\d+(?:\.\d+)?)', u_desc)
+    mrod = re.search(r'ROD[,\s]*(?:[- ]*(?:O\.?D\.?|DIA\.?|[Øø])[-=, ]*)?(\d+(?:\.\d+)?)\s*[xX*]\s*(?:L\s*[-=]?\s*)?(\d+(?:\.\d+)?)', u_desc)
     if mrod:
         od = float(mrod.group(1))
         r_len = float(mrod.group(2))
         return r_len, od, od
 
-    # ROD single dia pattern: ROD O.D 30.000000 or ROD O.D 75.000000
-    mrod_single = re.search(r'ROD[,\s]*(?:[- ]*(?:O\.?D\.?|DIA\.?)[-=, ]*)?(\d+(?:\.\d+)?)', u_desc)
+    # ROD single dia pattern: ROD O.D 30.000000 or ROD Ø131
+    mrod_single = re.search(r'ROD[,\s]*(?:[- ]*(?:O\.?D\.?|DIA\.?|[Øø])[-=, ]*)?(\d+(?:\.\d+)?)', u_desc)
     if mrod_single and (length_col or bb_l):
         od = float(mrod_single.group(1))
         r_len = parse_number(length_col) or parse_number(bb_l)
@@ -122,7 +155,7 @@ def extract_dimensions_from_desc(desc: str, length_col=None, bb_l=None, bb_w=Non
     m3d = re.search(r'(\d+(?:\.\d+)?)\s*[xX*]\s*(\d+(?:\.\d+)?)\s*[xX*]\s*(\d+(?:\.\d+)?)', u_desc)
     if m3d:
         v1, v2, v3 = float(m3d.group(1)), float(m3d.group(2)), float(m3d.group(3))
-        if "TUBE, SQUARE" in u_desc or "SQ. PIPE" in u_desc or "ANGLE" in u_desc:
+        if any(k in u_desc for k in ["TUBE, SQUARE", "TUBE, RECTANGULAR", "SQ. PIPE", "SQ PIPE", "SHS", "RHS", "ANGLE", "ISA "]) or re.match(r'^L\s*\d+', u_desc):
             w = v1
             t = v3
             l = parse_number(length_col) or parse_number(bb_l) or v1
@@ -309,27 +342,27 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
     c_pnum = hmap.get("pnum", 2)
     c_code = hmap.get("code")
     c_desc = hmap.get("desc", 4)
-    c_len = hmap.get("length", 5)
-    c_od = hmap.get("od", 8)
-    c_thk = hmap.get("thk", 9)
-    c_bbl = hmap.get("bbl", 10)
-    c_bbw = hmap.get("bbw", 11)
-    c_sm_thk = hmap.get("sm_thk", 12)
-    c_qty = hmap.get("qty", 13)
-    c_wt = hmap.get("wt", 14)
-    c_mat = hmap.get("mat", 15)
-    c_unit = hmap.get("unit", 16)
-    c_rem = hmap.get("rem", 17)
+    c_len = hmap.get("length")
+    c_od = hmap.get("od")
+    c_thk = hmap.get("thk")
+    c_bbl = hmap.get("bbl")
+    c_bbw = hmap.get("bbw")
+    c_sm_thk = hmap.get("sm_thk")
+    c_qty = hmap.get("qty")
+    c_wt = hmap.get("wt")
+    c_mat = hmap.get("mat")
+    c_unit = hmap.get("unit")
+    c_rem = hmap.get("rem")
 
     raw_nodes = []
     for r in range(header_row_idx + 1, len(sw_rows)):
         row = sw_rows[r]
         if not any(row):
             continue
-        raw_ino = clean_str(row[c_item] if c_item < len(row) else "")
+        raw_ino = clean_str(row[c_item] if c_item is not None and c_item < len(row) else "")
         item_no = re.sub(r'[\s\n\r]+', '', raw_ino)
-        pnum = clean_str(row[c_pnum] if c_pnum < len(row) else "")
-        desc = clean_str(row[c_desc] if c_desc < len(row) else "")
+        pnum = clean_str(row[c_pnum] if c_pnum is not None and c_pnum < len(row) else "")
+        desc = clean_str(row[c_desc] if c_desc is not None and c_desc < len(row) else "")
         if not item_no and not pnum and not desc:
             continue
             
@@ -340,17 +373,17 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
             'pnum': pnum,
             'code': clean_str(row[c_code] if c_code is not None and c_code < len(row) else ""),
             'desc': desc,
-            'length': row[c_len] if c_len < len(row) else None,
-            'od': row[c_od] if c_od < len(row) else None,
-            'thk': row[c_thk] if c_thk < len(row) else None,
-            'bbl': row[c_bbl] if c_bbl < len(row) else None,
-            'bbw': row[c_bbw] if c_bbw < len(row) else None,
-            'sm_thk': row[c_sm_thk] if c_sm_thk < len(row) else None,
-            'qty': row[c_qty] if c_qty < len(row) else None,
-            'wt': row[c_wt] if c_wt < len(row) else None,
-            'mat': clean_str(row[c_mat] if c_mat < len(row) else ""),
-            'unit': clean_str(row[c_unit] if c_unit < len(row) else ""),
-            'rem': clean_str(row[c_rem] if c_rem < len(row) else "")
+            'length': row[c_len] if c_len is not None and c_len < len(row) else None,
+            'od': row[c_od] if c_od is not None and c_od < len(row) else None,
+            'thk': row[c_thk] if c_thk is not None and c_thk < len(row) else None,
+            'bbl': row[c_bbl] if c_bbl is not None and c_bbl < len(row) else None,
+            'bbw': row[c_bbw] if c_bbw is not None and c_bbw < len(row) else None,
+            'sm_thk': row[c_sm_thk] if c_sm_thk is not None and c_sm_thk < len(row) else None,
+            'qty': row[c_qty] if c_qty is not None and c_qty < len(row) else None,
+            'wt': row[c_wt] if c_wt is not None and c_wt < len(row) else None,
+            'mat': clean_str(row[c_mat] if c_mat is not None and c_mat < len(row) else ""),
+            'unit': clean_str(row[c_unit] if c_unit is not None and c_unit < len(row) else ""),
+            'rem': clean_str(row[c_rem] if c_rem is not None and c_rem < len(row) else "")
         })
 
     if not bom_header.get("project_no"):
@@ -432,6 +465,8 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
                 full_desc = f"{clean_pnum} {clean_desc}".strip()
         elif not clean_desc or clean_desc.upper() in ["NONE", "FASTENER.", "FASTENER", "BOLT"]:
             full_desc = clean_pnum or clean_desc
+        elif clean_desc.upper() in ["GURB SCREW", "GRUB SCREW", "HEX BOLT", "HEX NUT", "PLAIN WASHER", "SPRING WASHER", "NYLOCK NUT", "CSK BOLT", "STUD"] and not re.search(r'M\s*\d+', clean_desc, re.I) and re.search(r'M\s*\d+', clean_pnum, re.I):
+            full_desc = clean_pnum
 
         if full_desc.upper() == "SHEET" and not node['bbl'] and not node['bbw'] and not node['sm_thk'] and not node['thk'] and not node['wt']:
             return
@@ -477,6 +512,12 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
             rm_type = "Raw Material-ROD"
         elif re.search(r'\bS(?:10|40|80)\b', u_full) or "AL PIPE STRUCTURAL" in u_full or "ROUND PIPE" in u_full:
             rm_type = "Raw Material-PIPE"
+        elif any(k in u_full for k in ["SHS", "RHS", "TUBE, SQUARE", "TUBE, RECTANGULAR", "SQ. PIPE", "SQ PIPE"]):
+            rm_type = "Raw Material-SQ PIPE"
+        elif "ANGLE" in u_full or re.search(r'\bISA\s*\d+', u_full) or re.match(r'^L\s*\d+(?:\.\d+)?\s*[xX*]\s*\d+', u_full):
+            rm_type = "Raw Material-ISA ANGLE"
+        elif re.search(r'^[Øø]\s*\d+(?:\.\d+)?\s*[xX*]\s*L\s*[-=]?\s*\d+', u_full):
+            rm_type = "Raw Material-ROD"
         elif any(k in u_full for k in ["PLATE", "SHEET", "CHECKER SHEET", "END PLATE", "COVER", "HOPPER", "BKT", "BRACKET", "CLEAT", "TRAY", "FRAME", "DOOR", "CONE", "STIFFNER", "PUMP DISCHARGE FLANGE", "PUMP SUCTION FLANGE"]):
             rm_type = "Raw Material-PLATE"
         elif any(k in u_full or k in u_pnum for k in [
@@ -527,7 +568,9 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
             unit = "Nos."
         elif "EXTERNAL CIRCLIP" in u_desc or "CIRCLIP" in u_desc:
             rm_type = "Raw Material-FASTENER"
-            item_code = "F-CIRCLIP20"
+            mcir = re.search(r'(?:CIRCLIP|Ø)\s*(\d+)', u_desc) or re.search(r'(\d+)', u_desc)
+            csz = mcir.group(1) if mcir else "20"
+            item_code = f"F-CIRCLIP{csz}" if csz == "20" else ""
             unit = "Nos."
         elif "NYLOCK" in u_desc:
             rm_type = "Raw Material-FASTENER"

@@ -262,12 +262,12 @@ def classify_rm_type(desc: str, pnum: str = "", moc: str = "") -> str:
         if any(k in combined for k in ["STUD M", "HEX NUT", "PLAIN WASHER", "SPRING WASHER"]):
             return "Raw Material-FASTENER"
         
-    # 2. Square pipes
-    if any(k in combined for k in ["TUBE, SQUARE", "SQ. PIPE", "SQUARE TUBE", "SQ PIPE"]):
+    # 2. Square / Rectangular pipes
+    if any(k in combined for k in ["TUBE, SQUARE", "TUBE, RECTANGULAR", "SQ. PIPE", "SQUARE TUBE", "SQ PIPE", "SHS", "RHS"]):
         return "Raw Material-SQ PIPE"
         
     # 3. Angle
-    if "ANGLE" in combined or "ISA ANGLE" in combined:
+    if "ANGLE" in combined or "ISA ANGLE" in combined or re.search(r'\bISA\s*\d+', combined) or re.match(r'^L\s*\d+(?:\.\d+)?\s*[xX*]\s*\d+', u_desc):
         return "Raw Material-ISA ANGLE"
         
     # 4. Round Pipes
@@ -283,7 +283,7 @@ def classify_rm_type(desc: str, pnum: str = "", moc: str = "") -> str:
         if "PLATE" not in combined and "SHEET" not in combined:
             return "Raw Material-ROD"
 
-    if ("ROUND PLATE" not in combined and "PLATE DIA" not in combined) and ("ROD" in combined or "ROUND BAR" in combined or "ROUND DIA" in combined or "ROUND  DIA" in combined or "BRASS BUSH" in combined or "SCREW-CLOCKWISE" in combined or "SCREW-ANTICLOCK" in combined):
+    if ("ROUND PLATE" not in combined and "PLATE DIA" not in combined) and ("ROD" in combined or "ROUND BAR" in combined or "ROUND DIA" in combined or "ROUND  DIA" in combined or "BRASS BUSH" in combined or "SCREW-CLOCKWISE" in combined or "SCREW-ANTICLOCK" in combined or re.search(r'^[Øø]\s*\d+(?:\.\d+)?\s*[xX*]\s*L\s*[-=]?\s*\d+', u_desc)):
         return "Raw Material-ROD"
         
     # 6. Square Bars
@@ -340,8 +340,10 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
             return "RM-US5X1220M"
         if "POLYCORBONAT" in u_moc or "POLYCARBONAT" in u_moc or "POLYCARBONATE" in combined:
             return "RM-PS2440X1220X5MM"
-        if "TEFLON" in combined:
+        if "TEFLON" in combined or "TEFLON" in u_moc or "PTFE" in combined or "PTFE" in u_moc:
             return "RM-TS3X1000M"
+        if any(k in u_moc for k in ["PE HIGH", "POLYAMIDE", "PUR", "RUBBER", "NYLON"]):
+            return ""
             
         t = thk if thk is not None else None
         if t is None or t <= 0:
@@ -361,10 +363,16 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
             
     # 3. SQUARE PIPE
     elif rm_type == "Raw Material-SQ PIPE":
+        if "RECTANGULAR" in combined or "RHS" in combined:
+            return ""
         mw = re.search(r'(?:SQUARE|SQ\.?\s*PIPE|TUBE,?\s*SQUARE)\s*(\d+(?:\.\d+)?)\s*[xX*]\s*(\d+(?:\.\d+)?)\s*[xX*]\s*(\d+(?:\.\d+)?)', combined)
+        mshs = re.search(r'(?:SHS|SQ\.?\s*PIPE)\s*(\d+(?:\.\d+)?)\s*[xX*]\s*(?:THK\s*[-=]?\s*)?(\d+(?:\.\d+)?)', combined)
         if mw:
             w = int(round(float(mw.group(1))))
             t = int(round(float(mw.group(3))))
+        elif mshs:
+            w = int(round(float(mshs.group(1))))
+            t = int(round(float(mshs.group(2))))
         else:
             w = int(round(width or 50))
             t = int(round(thk or 3))
@@ -520,10 +528,12 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
             return "FT-HCLAMP1\""
         if "UB01" in combined or "UB1" in combined or "2503" in combined:
             return "ST-UWS2503G"
+        if "UCFL 208" in combined or "UCFL208" in combined or "UCFL-208" in combined or ("UCFL" in combined and "208" in combined):
+            return "BE-CFL208TH"
+        if "UCFL 205" in combined or "UCFL205" in combined or "UCFL-205" in combined or ("UCFL" in combined and "205" in combined):
+            return ""
         if "UCFL 206" in combined or "UCFL206" in combined or "UCFL-206" in combined or "FLANGE BLOCK BEARING" in combined:
             return "BE-UCFL206"
-        if "UCFL 208" in combined or "UCFL208" in combined or "UCFL-208" in combined:
-            return "BE-CFL208TH"
         if "UCP 215" in combined or "UCP215" in combined or "UCP-215" in combined:
             return "BE-CP215NTN"
         if "65X100X10" in combined.replace(" ", ""):
