@@ -16,10 +16,17 @@ def clean_str(val):
 def parse_number(val):
     if val is None:
         return None
+    s = str(val).strip()
+    if not s:
+        return None
+    # Ignore unresolved SolidWorks property link formulas (e.g. SW-Bounding Box Length@@@Sheet<1>@...SLDPRT)
+    u = s.upper()
+    if "SW-" in u or "@@@" in s or ".SLDPRT" in u or ".SLDASM" in u or "SHEET<" in u:
+        return None
     try:
-        return float(val)
+        return float(s)
     except (ValueError, TypeError):
-        m = re.search(r'(\d+(?:\.\d+)?)', str(val))
+        m = re.search(r'(\d+(?:\.\d+)?)', s)
         if m:
             return float(m.group(1))
     return None
@@ -43,9 +50,9 @@ def extract_dimensions_from_desc(desc: str, length_col=None, bb_l=None, bb_w=Non
         l_len = float(msq.group(2))
         return l_len, sz, sz
         
-    # STUD pattern: STUD M24.00 X L 200.00, STUD, M10 X L-38, STUD M 10.000000 X 1.5, STUD M16.000000 X 3.0
+    # STUD pattern: STUD M24.00 X L 200.00, STUD, M10 X L-38, STUD M 10.000000 X 1.5, STUD M12X40
     if "STUD" in u_desc:
-        mstud_l = re.search(r'L\s*[-=]?\s*(\d+(?:\.\d+)?)', u_desc)
+        mstud_l = re.search(r'(?:L\s*[-=]?\s*|M\s*\d+(?:\.\d+)?\s*[xX*]\s*(?:L\s*[-=]?\s*)?)(\d+(?:\.\d+)?)', u_desc)
         mstud_m = re.search(r'M\s*(\d+(?:\.\d+)?)', u_desc)
         thk_sz = f"M{int(float(mstud_m.group(1)))}" if mstud_m else None
         l_len = float(mstud_l.group(1)) if mstud_l else (parse_number(length_col) or 0.0)
@@ -199,8 +206,10 @@ def parse_solidworks_bom(file_path: str, default_po_qty: float = 1.0):
                 c_str = clean_str(val).upper()
                 if not c_str:
                     continue
-                if any(k in c_str for k in ["ITEM NO", "ITEM_NO", "S. NO", "S.N", "S.NO", "ITEM"]):
+                if any(k in c_str for k in ["ITEM NO", "ITEM_NO", "S. NO", "S.N", "S.NO"]) or c_str == "ITEM":
                     header_map.setdefault("item_no", c_idx)
+                elif any(k in c_str for k in ["TYPE OF RM", "RM TYPE"]):
+                    header_map.setdefault("rm_type_col", c_idx)
                 elif any(k in c_str for k in ["PART NUMBER", "PART NO", "DWG NO", "DWG. NO."]):
                     header_map.setdefault("pnum", c_idx)
                 elif any(k in c_str for k in ["ITEM CODE", "CODE"]):
@@ -221,14 +230,16 @@ def parse_solidworks_bom(file_path: str, default_po_qty: float = 1.0):
                     header_map.setdefault("od", c_idx)
                 elif any(k in c_str for k in ["TOTAL WEIGHT", "TOTAL WEIGHT(KG)"]):
                     header_map.setdefault("total_wt", c_idx)
-                elif any(k in c_str for k in ["WEIGHT(KG)", "WEIGHT", "WT"]):
+                elif any(k in c_str for k in ["WEIGHT(KG)", "WEIGHT", "WT", "MASS"]):
                     header_map.setdefault("wt", c_idx)
-                elif any(k in c_str for k in ["QTY.", "QTY", "QUANTITY"]):
+                elif any(k in c_str for k in ["QTY.", "QTY", "QUANTITY"]) and "P.O" not in c_str and "PO " not in c_str:
                     header_map.setdefault("qty", c_idx)
                 elif any(k in c_str for k in ["MATERIAL", "MOC"]):
                     header_map.setdefault("mat", c_idx)
                 elif any(k in c_str for k in ["UNIT", "UNITS", "UOM"]):
-                    header_map.setdefault("unit", c_idx)
+                    # Prefer the part UNIT column (after QTY/MATERIAL) if there is an earlier PO UNIT column
+                    if "unit" not in header_map or c_idx > 6:
+                        header_map["unit"] = c_idx
                 elif any(k in c_str for k in ["REMARK", "REMARKS", "CATEGORY/REMARK"]):
                     header_map.setdefault("rem", c_idx)
             break
@@ -267,7 +278,9 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
     Tracks parent-child tree, accumulates quantities, collapses assemblies, and replicates mirror parts.
     """
     c_item = hmap.get("item_no", 0)
+    c_rm_type = hmap.get("rm_type_col")
     c_pnum = hmap.get("pnum", 2)
+    c_code = hmap.get("code")
     c_desc = hmap.get("desc", 4)
     c_len = hmap.get("length", 5)
     c_od = hmap.get("od", 8)
@@ -296,7 +309,9 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
         raw_nodes.append({
             'r': r,
             'item_no': item_no,
+            'rm_type_col': clean_str(row[c_rm_type] if c_rm_type is not None and c_rm_type < len(row) else ""),
             'pnum': pnum,
+            'code': clean_str(row[c_code] if c_code is not None and c_code < len(row) else ""),
             'desc': desc,
             'length': row[c_len] if c_len < len(row) else None,
             'od': row[c_od] if c_od < len(row) else None,
@@ -388,8 +403,8 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
                 full_desc = clean_pnum
             else:
                 full_desc = f"{clean_pnum} {clean_desc}".strip()
-        elif not clean_desc or clean_desc == "Fastener." or clean_desc == "BOLT":
-            full_desc = clean_pnum
+        elif not clean_desc or clean_desc.upper() in ["NONE", "FASTENER.", "BOLT"]:
+            full_desc = clean_pnum or clean_desc
 
         if full_desc.upper() == "SHEET" and not node['bbl'] and not node['bbw'] and not node['sm_thk'] and not node['thk'] and not node['wt']:
             return
@@ -422,25 +437,38 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
                 if bbls:
                     l_val = max(bbls)
 
-        rm_type = classify_rm_type(full_desc, effective_dwg, mat)
-        if "STUD" in full_desc.upper():
+        rm_type = (node.get('rm_type_col') or "").strip() or classify_rm_type(full_desc, effective_dwg, mat)
+        u_full = full_desc.upper()
+        u_pnum = clean_pnum.upper()
+        if "STUD" in u_full:
             rm_type = "Raw Material-FASTENER"
-        elif any(k in full_desc.upper() for k in ["WASHER", "HEX NUT", "HEX BOLT", "CIRCLIP", "CSK", "COUNTERSUNK", "BUTTON HEAD", "NYLOCK"]):
+        elif any(k in u_full for k in ["WASHER", "HEX NUT", "HEX BOLT", "SOCKET HEAD BOLT", "CIRCLIP", "CSK", "COUNTERSUNK", "BUTTON HEAD", "NYLOCK", "GRUB SCREW", "GURB SCREW", "LEVELING BOLT"]):
             rm_type = "Raw Material-FASTENER"
-        elif any(k in full_desc.upper() for k in ["PLATE", "SHEET", "CHECKER SHEET", "END PLATE", "FLANGE", "COVER", "HOPPER", "BKT", "BRACKET", "CLEAT", "TRAY", "FRAME"]):
+        elif re.search(r'\bS(?:10|40|80)\b', u_full) or "AL PIPE STRUCTURAL" in u_full or "ROUND PIPE" in u_full:
+            rm_type = "Raw Material-PIPE"
+        elif any(k in u_full for k in ["PLATE", "SHEET", "CHECKER SHEET", "END PLATE", "COVER", "HOPPER", "BKT", "BRACKET", "CLEAT", "TRAY", "FRAME", "DOOR", "CONE", "STIFFNER"]):
             rm_type = "Raw Material-PLATE"
-        elif any(k in full_desc.upper() or k in clean_pnum.upper() for k in ["BEARING", "CASTOR", "WEAR STRIP", "WEARSTRIP", "PU-LAGGING", "FLANGE BLOCK"]):
+        elif any(k in u_full or k in u_pnum for k in [
+            "BEARING", "UCFL", "UCP", "CASTOR", "WEAR STRIP", "WEARSTRIP", "PU-LAGGING", "FLANGE BLOCK",
+            "OIL SEAL", "HMS5", "CHAIN COUPLING", "ROLLER CHAIN", "VALVE", "STRAINER", "SLIP ON FLANGE",
+            "90L ", "45L ", "REDUCER", "ELBOW", "OMRON", "SENSOR", "PT-100", "GUAGE", "GAUGE", "SYPHON", "SEW", "DARSHANA", "HINGE"
+        ]):
             rm_type = "Raw Material-BOP"
 
-        # Item Code matching
-        item_code = match_item_code(rm_type, full_desc, t_val, w_val, l_val, mat, pnum=effective_dwg)
+        # Item Code matching: preserve SolidWorks code if explicitly provided, else match master
+        sw_code = (node.get('code') or "").strip()
+        item_code = sw_code if sw_code else match_item_code(rm_type, full_desc, t_val, w_val, l_val, mat, pnum=effective_dwg)
 
         u_desc = full_desc.upper()
-        u_pnum = clean_pnum.upper()
         if "UCFL" in u_pnum or "UCFL" in u_desc or "FLANGE BLOCK" in u_desc:
-            rm_type = "Raw Material-BOP"
-            item_code = "BE-UCFL206"
-            unit = "No."
+            if any(p in u_desc for p in ["PLATE", "BKT", "BRACKET", "PAD"]):
+                rm_type = "Raw Material-PLATE"
+                unit = "Kg"
+            else:
+                rm_type = "Raw Material-BOP"
+                if not item_code:
+                    item_code = match_item_code(rm_type, f"{u_pnum} {u_desc}", t_val, w_val, l_val, mat, pnum=effective_dwg)
+                unit = "No."
         elif "CASTOR WHEEL MT. PLATE" in u_desc or ("CASTOR" in u_desc and any(p in u_desc for p in ["PLATE", "BKT", "BRACKET", "FRAME"])):
             rm_type = "Raw Material-PLATE"
             item_code = ""
@@ -476,9 +504,6 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
             sz = mstud_m.group(1) if mstud_m else "10"
             item_code = f"F-STM{sz}"
             unit = "Mtr"
-        elif "COUNTERSUNK" in u_desc or "CSK" in u_desc:
-            item_code = "F-ALCSKB6X20"
-            unit = "Nos."
         elif "HEX BOLT M8 X L-55" in u_desc:
             item_code = "F-HBM8X55"
             unit = "Nos."
@@ -491,18 +516,12 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
             else:
                 item_code = "RM-UR120MX1000M"
             unit = "Kg"
-        elif rm_type == "Raw Material-PLATE" and not item_code:
-            if t_val:
-                t_str = f"{t_val:g}"
-                item_code = f"RM-SS{t_str}X1500M"
-                unit = "Kg"
-            else:
-                item_code = ""
-                unit = "Kg"
+        elif rm_type == "Raw Material-PLATE":
+            unit = "Kg"
         else:
             unit = "Kg"
             if rm_type in ["Raw Material-FASTENER", "Raw Material-BOP"]:
-                unit = "Nos." if "FASTENER" in rm_type or "CIRCLIP" in u_desc else ("No." if "BEARING" in u_desc or "CASTOR" in u_desc else "Kg")
+                unit = "Nos." if "FASTENER" in rm_type or "CIRCLIP" in u_desc else ("No." if "BEARING" in u_desc or "CASTOR" in u_desc or "UCFL" in u_desc or "UCP" in u_desc else "Nos.")
 
         # Clean any accidental 'None' in fastener item codes
         if rm_type == "Raw Material-FASTENER" and "None" in item_code:

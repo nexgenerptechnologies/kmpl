@@ -294,19 +294,20 @@ def classify_rm_type(desc: str, pnum: str = "", moc: str = "") -> str:
     if "BLOCK" in combined and "BEARING BLOCK" not in combined and "UCP" not in combined:
         return "Raw Material-BLOCK"
         
-    # 8. Plates, sheets, brackets, cleats, and trays (Check first before generic BOP terms)
-    if any(k in combined for k in ["PLATE", "SHEET", "CHECKER SHEET", "END PLATE", "FLANGE", "COVER", "HOPPER", "BKT", "BRACKET", "CLEAT", "TRAY", "FRAME"]):
-        return "Raw Material-PLATE"
-
-    # 9. Bought out parts (BOP)
+    # 8. Check explicit BOP fittings/valves/bearings/seals/sensors before generic PLATE
     if any(k in combined for k in [
-        "BEARING", "CASTOR", "GLAND", "VALVE", "SPROCKET", "MOTOR", "PUMP",
-        "GAUGE", "GUAGE", "SEAL", "HOSE", "BEND", "UNION", "CLAMP", "CHAIN",
+        "BEARING", "UCFL", "UCP", "CASTOR", "GLAND", "VALVE", "STRAINER", "SPROCKET", "MOTOR", "PUMP",
+        "GAUGE", "GUAGE", "SEAL", "HMS5", "HOSE", "BEND", "UNION", "CLAMP", "CHAIN COUPLING", "ROLLER CHAIN",
         "FILTER", "REGULATOR", "LUBRICATOR", "LOCKING DEVICE", "LOCK WASHER", "LOCK NUT",
         "ABRAZADERA", "ENCLOSURE", "PUSH BUTTON", "SWITCH", "INDICATOR", "GEAR", "HELICAL",
-        "WEAR STRIP", "WEARSTRIP", "UB01", "UB1", "PU-LAGGING", "LAGGING", "WHEEL"
-    ]):
+        "WEAR STRIP", "WEARSTRIP", "UB01", "UB1", "PU-LAGGING", "LAGGING", "CHAIN WHEEL",
+        "SLIP ON FLANGE", "90L ", "45L ", "REDUCER", "ELBOW", "OMRON", "SENSOR", "PT-100", "SYPHON", "SEW", "DARSHANA"
+    ]) and not any(p in combined for p in ["PAD PLATE", "MTG PLATE", "MT. PLATE", "PLATE HOLDER"]):
         return "Raw Material-BOP"
+
+    # 9. Plates, sheets, brackets, cleats, and trays
+    if any(k in combined for k in ["PLATE", "SHEET", "CHECKER SHEET", "END PLATE", "FLANGE", "COVER", "HOPPER", "BKT", "BRACKET", "CLEAT", "TRAY", "FRAME", "DOOR", "CONE", "STIFFNER"]):
+        return "Raw Material-PLATE"
         
     return "Raw Material-PLATE"
 
@@ -343,7 +344,10 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
             return "RM-TS3X1000M"
             
         t = thk if thk is not None else None
-        if t is None:
+        if t is None or t <= 0:
+            return ""
+        # Only match standard commercial sheet thicknesses (never 70, 520, 2510, etc.)
+        if t not in [0.5, 0.8, 1.0, 1.2, 1.5, 2.0, 2.5, 3.0, 3.2, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 14.0, 15.0, 16.0, 20.0, 25.0, 30.0]:
             return ""
         t_str = f"{t:g}"
         
@@ -374,27 +378,29 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
         
     # 5. ROUND PIPE (Standard Commercial Piping Sizes)
     elif rm_type == "Raw Material-PIPE":
-        if "168.3" in u_desc or (width and abs(width - 168.3) < 1):
+        if "168.3" in u_desc or re.search(r'\b6\s*S(?:40|10)\b', u_desc) or (width and abs(width - 168.3) < 1):
             return "RM-P168.3X3.4THK"
+        if "114" in u_desc or re.search(r'\b4\s*S(?:40|10)\b', u_desc) or (width and abs(width - 114) < 1):
+            return "RM-SRP114X5M"
         if "101.6" in u_desc or (width and abs(width - 101.6) < 2):
             return "RM-SHP101.6X3.2"
-        if re.search(r'\b73(?:\.03)?\b', u_desc) or (width and abs(width - 73) < 1):
+        if re.search(r'\b73(?:\.03)?\b', u_desc) or re.search(r'\b2\.5\s*S(?:10|40)\b', u_desc) or (width and abs(width - 73) < 1):
             if is_ms or any(k in combined for k in ["SCH 40", "SCH-40", "THK-4", "THK 4"]):
                 return "RM-MRP73X4M"
             return "RM-SRP73X5M"
+        if re.search(r'\b60(?:\.3)?\b', u_desc) or re.search(r'\b2\s*(?:INCH|S10|S40)\b', u_desc) or (width and abs(width - 60) < 1):
+            return "RM-SRP60.3X2.77MM" if "S10" in u_desc or "SCH 10" in u_desc else "RM-SRP60.3X3.91M"
         if "50.8" in u_desc or (width and abs(width - 50.8) < 1):
             return "RM-SHP50.8X1.65MM"
-        if any(k in u_desc for k in ["48.3", "48.26", "OD-48", "OD 48"]) or (width and abs(width - 48.3) < 1):
+        if any(k in u_desc for k in ["48.3", "48.26", "OD-48", "OD 48"]) or re.search(r'\b1\.5\s*S(?:10|40)\b', u_desc) or (width and abs(width - 48.3) < 1):
             if "1.65" in combined or (thk and abs(thk - 1.65) < 0.1):
                 return "RM-SRP48.3X1.65MM"
-            return "RM-SRP48X3M"
-        if re.search(r'\b60(?:\.3)?\b', u_desc) or (width and abs(width - 60) < 1):
-            return "RM-SRP60.3X3.91M"
-        if "114" in u_desc or (width and abs(width - 114) < 1):
-            return "RM-SRP114X5M"
-        if "33.4" in u_desc or (width and abs(width - 33.4) < 1):
+            return "RM-SRP48.3X2.77MM" if "S10" in u_desc or "SCH 10" in u_desc else "RM-SRP48X3M"
+        if "33.4" in u_desc or re.search(r'\b1\s*S(?:10|40)\b', u_desc) or (width and abs(width - 33.4) < 1):
             return "RM-SRP33.4X3M"
-        return "RM-SRP33.4X3M"
+        if "21.3" in u_desc or re.search(r'\b0\.5\s*S(?:10|40)\b', u_desc) or (width and abs(width - 21.3) < 1):
+            return "RM-SRP21.3X2.11MM"
+        return ""
         
     # 6. ROD (Commercial Raw Stock Rounding)
     elif rm_type == "Raw Material-ROD":
@@ -444,13 +450,14 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
         
     # 8. FASTENERS
     elif rm_type == "Raw Material-FASTENER":
-        m_match = re.search(r'\bM(\d+)\b', combined, re.I)
+        # Extract M-size and bolt length ONLY from u_desc (never from drawing numbers like KMPL-2490-11)
+        m_match = re.search(r'\bM(\d+)\b', u_desc, re.I) or re.search(r'M(\d+)(?:[xX\s\-]|\b)', u_desc, re.I)
         if not m_match:
-            m_match = re.search(r'M(\d+)(?:[xX\s\-]|\b)', combined, re.I)
+            m_match = re.search(r'\bM(\d+)\b', combined, re.I) or re.search(r'M(\d+)(?:[xX\s\-]|\b)', combined, re.I)
         m_num = m_match.group(1) if m_match else "8"
         m_size = f"M{m_num}"
         
-        l_match = re.search(r'(?:L\s*[-=]?\s*|X\s*L?\s*[-=]?\s*)(\d+)', combined)
+        l_match = re.search(r'(?:\bL\s*[-=]?\s*|M\d+\s*[xX]\s*L?\s*[-=]?\s*)(\d+)', u_desc, re.I)
         l_val = l_match.group(1) if l_match else None
         if not l_val and length:
             try:
@@ -507,9 +514,23 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
             return "FT-HCLAMP1\""
         if "UB01" in combined or "UB1" in combined or "2503" in combined:
             return "ST-UWS2503G"
-        if "UCFL 206" in combined or "UCFL206" in combined or "FLANGE BLOCK BEARING" in combined:
+        if "UCFL 206" in combined or "UCFL206" in combined or "UCFL-206" in combined or "FLANGE BLOCK BEARING" in combined:
             return "BE-UCFL206"
-        if ("CASTOR" in combined or "WHEEL" in combined) and not any(p in combined for p in ["PLATE", "BKT", "BRACKET", "FRAME"]):
+        if "UCFL 208" in combined or "UCFL208" in combined or "UCFL-208" in combined:
+            return "BE-CFL208TH"
+        if "UCP 215" in combined or "UCP215" in combined or "UCP-215" in combined:
+            return "BE-CP215NTN"
+        if "65X100X10" in combined.replace(" ", ""):
+            return "RB-S65X100X10M"
+        if "CR8018" in combined or "CHAIN COUPLING" in combined:
+            return "C-CC8018HK"
+        if "STRAINER" in combined and "40NB" in combined:
+            return "FT-YTYPE SV40NB"
+        if "GLOBE VALVE" in combined and "40NB" in combined:
+            return "V-GLV1.5\"40M"
+        if "ECC REDUCER" in combined and "6" in combined and "2.5" in combined:
+            return "FT-ECCR6\"X2.5\"NB"
+        if "CASTOR" in combined and not any(p in combined for p in ["PLATE", "BKT", "BRACKET", "FRAME"]):
             return "HW-TWWB42140K"
 
         if frappe and hasattr(frappe, "db") and frappe.db:
