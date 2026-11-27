@@ -257,7 +257,7 @@ def classify_rm_type(desc: str, pnum: str = "", moc: str = "") -> str:
         "BOLT", "NUT", "WASHER", "STUD", "GRUB SCREW", "GURB SCREW",
         "ALLEN CAP", "CSK", "COUNTERSUNK", "BUTTON HEAD", "SCREW"
     ]):
-        if "LEVELING BOLT" not in combined and "MOTOR TILTING" not in combined and "SCREW-CLOCKWISE" not in combined and "SCREW-ANTICLOCK" not in combined:
+        if "LEVELING BOLT" not in combined and "MOTOR TILTING" not in combined and "SCREW-CLOCKWISE" not in combined and "SCREW-ANTICLOCK" not in combined and not re.search(r'\bLOCK\s*NUT\b', combined):
             return "Raw Material-FASTENER"
         if any(k in combined for k in ["STUD M", "HEX NUT", "PLAIN WASHER", "SPRING WASHER"]):
             return "Raw Material-FASTENER"
