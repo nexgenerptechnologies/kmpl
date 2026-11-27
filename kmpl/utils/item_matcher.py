@@ -374,6 +374,8 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
     elif rm_type == "Raw Material-ISA ANGLE":
         w = int(round(width or 40))
         t = int(round(thk or 3))
+        if w not in [25, 30, 35, 40, 45, 50, 65, 75, 100]:
+            return ""
         return f"RM-SA{w}X{t}M"
         
     # 5. ROUND PIPE (Standard Commercial Piping Sizes)
@@ -457,12 +459,16 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
         m_num = m_match.group(1) if m_match else "8"
         m_size = f"M{m_num}"
         
-        l_match = re.search(r'(?:\bL\s*[-=]?\s*|M\d+\s*[xX]\s*L?\s*[-=]?\s*)(\d+)', u_desc, re.I)
+        l_match = re.search(r'\bL\s*[-=]?\s*(\d+)', u_desc, re.I)
+        if not l_match:
+            m_x = re.search(r'M\d+\s*[xX]\s*(\d+)(?:\.\d+)?', u_desc, re.I)
+            if m_x and int(m_x.group(1)) >= 6:
+                l_match = m_x
         l_val = l_match.group(1) if l_match else None
         if not l_val and length:
             try:
                 l_float = float(length)
-                if l_float > 0:
+                if l_float >= 6:
                     l_val = str(int(round(l_float)))
             except:
                 pass

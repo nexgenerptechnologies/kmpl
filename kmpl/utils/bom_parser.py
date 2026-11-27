@@ -58,6 +58,24 @@ def extract_dimensions_from_desc(desc: str, length_col=None, bb_l=None, bb_w=Non
         l_len = float(mstud_l.group(1)) if mstud_l else (parse_number(length_col) or 0.0)
         return l_len, 0.0, thk_sz
     
+    # NB PIPE pattern: 1.5 S10, 2 S10, 2.5 S10, 4 S40, 6 S40, 10 S10, ROUND PIPE O.D 2 INCH NB SCH 10
+    nb_pipe_specs = {
+        "0.5": (21.3, 2.11),
+        "1": (33.4, 2.77),
+        "1.5": (48.3, 2.77),
+        "2": (60.3, 2.77),
+        "2.5": (73.0, 3.05),
+        "3": (88.9, 3.05),
+        "4": (114.3, 6.02),
+        "6": (168.3, 7.11),
+        "10": (273.0, 4.19),
+    }
+    m_nb = re.search(r'\b(0\.5|1\.5|2\.5|10|1|2|3|4|6)\s*(?:S(?:10|40|80)|INCH\s*NB)\b', u_desc)
+    if m_nb and ("PIPE" in u_desc or "S10" in u_desc or "S40" in u_desc or "S80" in u_desc):
+        od_mm, thk_mm = nb_pipe_specs[m_nb.group(1)]
+        p_len = parse_number(length_col) or parse_number(bb_l)
+        return p_len, od_mm, thk_mm
+
     # PIPE pattern: PIPE OD-101.6 x 410, SCH-20
     mpipe = re.search(r'PIPE\s*(?:O\.?D\.?[-= ]*)?(\d+(?:\.\d+)?)\s*[xX*]\s*(?:L\s*[-=]?\s*)?(\d+(?:\.\d+)?)', u_desc)
     if mpipe:
@@ -65,6 +83,13 @@ def extract_dimensions_from_desc(desc: str, length_col=None, bb_l=None, bb_w=Non
         p_len = float(mpipe.group(2))
         thk_val = 3.0 if "SCH-20" in u_desc or "SCH 20" in u_desc else (parse_number(bb_thk) or 2.77)
         return p_len, od, thk_val
+
+    # ROUND BAR / ROD with diameter symbol: Round bar-ø28x16, ROD.-ø7x725
+    m_bar_phi = re.search(r'(?:ROUND\s*BAR|ROD)[.\-\s]*[Øø]\s*(\d+(?:\.\d+)?)\s*[xX*]\s*(\d+(?:\.\d+)?)', u_desc)
+    if m_bar_phi:
+        od = float(m_bar_phi.group(1))
+        r_len = float(m_bar_phi.group(2))
+        return r_len, od, od
 
     # ROD pattern: ROD OD, 35 x 550 or ROD - DIA. - 120.0 X L - 43.0 or ROD O.D 20.000000 X L- 424.0
     mrod = re.search(r'ROD[,\s]*(?:[- ]*(?:O\.?D\.?|DIA\.?)[-=, ]*)?(\d+(?:\.\d+)?)\s*[xX*]\s*(?:L\s*[-=]?\s*)?(\d+(?:\.\d+)?)', u_desc)
@@ -162,8 +187,8 @@ def extract_dimensions_from_desc(desc: str, length_col=None, bb_l=None, bb_w=Non
                             l = float(m5.group(2))
                             t = 2.77 if ("PIPE" in u_desc and abs(w - 33.4) < 1) else w
 
-    # 4. Standard 2D pattern: 40.00x40.00
-    elif not l:
+    # 4. Standard 2D pattern: 40.00x40.00 (skip for fasteners so M10X1.5 thread pitch isn't parsed as L=10, W=1.5)
+    elif not l and not any(k in u_desc for k in ["BOLT", "SCREW", "NUT", "WASHER", "STUD"]):
         m2d = re.search(r'(\d+(?:\.\d+)?)\s*[xX*]\s*(\d+(?:\.\d+)?)', u_desc)
         if m2d:
             v1, v2 = float(m2d.group(1)), float(m2d.group(2))
@@ -232,6 +257,8 @@ def parse_solidworks_bom(file_path: str, default_po_qty: float = 1.0):
                     header_map.setdefault("total_wt", c_idx)
                 elif any(k in c_str for k in ["WEIGHT(KG)", "WEIGHT", "WT", "MASS"]):
                     header_map.setdefault("wt", c_idx)
+                    if "MASS" in c_str:
+                        header_map["wt_is_kg"] = True
                 elif any(k in c_str for k in ["QTY.", "QTY", "QUANTITY"]) and "P.O" not in c_str and "PO " not in c_str:
                     header_map.setdefault("qty", c_idx)
                 elif any(k in c_str for k in ["MATERIAL", "MOC"]):
@@ -403,7 +430,7 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
                 full_desc = clean_pnum
             else:
                 full_desc = f"{clean_pnum} {clean_desc}".strip()
-        elif not clean_desc or clean_desc.upper() in ["NONE", "FASTENER.", "BOLT"]:
+        elif not clean_desc or clean_desc.upper() in ["NONE", "FASTENER.", "FASTENER", "BOLT"]:
             full_desc = clean_pnum or clean_desc
 
         if full_desc.upper() == "SHEET" and not node['bbl'] and not node['bbw'] and not node['sm_thk'] and not node['thk'] and not node['wt']:
@@ -444,9 +471,13 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
             rm_type = "Raw Material-FASTENER"
         elif any(k in u_full for k in ["WASHER", "HEX NUT", "HEX BOLT", "SOCKET HEAD BOLT", "CIRCLIP", "CSK", "COUNTERSUNK", "BUTTON HEAD", "NYLOCK", "GRUB SCREW", "GURB SCREW", "LEVELING BOLT"]):
             rm_type = "Raw Material-FASTENER"
+        elif "SCREW FLIGHT" in u_full:
+            rm_type = "Raw Material-PLATE"
+        elif "SCREW HELIX" in u_full:
+            rm_type = "Raw Material-ROD"
         elif re.search(r'\bS(?:10|40|80)\b', u_full) or "AL PIPE STRUCTURAL" in u_full or "ROUND PIPE" in u_full:
             rm_type = "Raw Material-PIPE"
-        elif any(k in u_full for k in ["PLATE", "SHEET", "CHECKER SHEET", "END PLATE", "COVER", "HOPPER", "BKT", "BRACKET", "CLEAT", "TRAY", "FRAME", "DOOR", "CONE", "STIFFNER"]):
+        elif any(k in u_full for k in ["PLATE", "SHEET", "CHECKER SHEET", "END PLATE", "COVER", "HOPPER", "BKT", "BRACKET", "CLEAT", "TRAY", "FRAME", "DOOR", "CONE", "STIFFNER", "PUMP DISCHARGE FLANGE", "PUMP SUCTION FLANGE"]):
             rm_type = "Raw Material-PLATE"
         elif any(k in u_full or k in u_pnum for k in [
             "BEARING", "UCFL", "UCP", "CASTOR", "WEAR STRIP", "WEARSTRIP", "PU-LAGGING", "FLANGE BLOCK",
@@ -457,7 +488,10 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
 
         # Item Code matching: preserve SolidWorks code if explicitly provided, else match master
         sw_code = (node.get('code') or "").strip()
-        item_code = sw_code if sw_code else match_item_code(rm_type, full_desc, t_val, w_val, l_val, mat, pnum=effective_dwg)
+        if "SCREW FLIGHT" in u_full or "SCREW HELIX" in u_full or "PUMP DISCHARGE FLANGE" in u_full or "PUMP SUCTION FLANGE" in u_full:
+            item_code = sw_code
+        else:
+            item_code = sw_code if sw_code else match_item_code(rm_type, full_desc, t_val, w_val, l_val, mat, pnum=effective_dwg)
 
         u_desc = full_desc.upper()
         if "UCFL" in u_pnum or "UCFL" in u_desc or "FLANGE BLOCK" in u_desc:
@@ -532,7 +566,7 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
 
         raw_wt = parse_number(node['wt'])
         if raw_wt and raw_wt > 0 and rm_type not in ["Raw Material-FASTENER", "Raw Material-BOP"]:
-            unit_wt = round(raw_wt / 1000.0, 5)
+            unit_wt = round(raw_wt, 5) if hmap.get("wt_is_kg") else round(raw_wt / 1000.0, 5)
         else:
             calculated = calculate_item_weight(rm_type, l_val, w_val, t_val, mat, item_code=item_code, desc=full_desc)
             unit_wt = round(calculated, 5) if calculated else 0.0

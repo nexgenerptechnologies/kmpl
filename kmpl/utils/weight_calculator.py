@@ -200,9 +200,12 @@ def compile_summary(bom_items: list, project_no: str = "") -> list:
                 if m:
                     thk_val = f"M{m.group(1)}"
             elif data["is_plate"]:
-                mt = re.search(r'RM-[A-Z]+(\d+(?:\.\d+)?)X', icode)
-                if mt:
-                    thk_val = float(mt.group(1))
+                if "1200X3M" in icode:
+                    thk_val = 3.0
+                else:
+                    mt = re.search(r'RM-[A-Z]+(\d+(?:\.\d+)?)X', icode)
+                    if mt:
+                        thk_val = float(mt.group(1))
 
         # Determine weight_kg and unit_weight strictly based on item category
         # Fasteners and BOP components must NEVER dump piece counts under weight in Kg!
