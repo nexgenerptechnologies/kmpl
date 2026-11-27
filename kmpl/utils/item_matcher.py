@@ -505,6 +505,8 @@ def match_item_code(rm_type: str, desc: str, thk: float = None, width: float = N
     elif rm_type == "Raw Material-BOP":
         if "ABRAZADERA" in combined or ("HOSE" in combined and "CLAMP" in combined):
             return "FT-HCLAMP1\""
+        if "UB01" in combined or "UB1" in combined or "2503" in combined:
+            return "ST-UWS2503G"
         if "UCFL 206" in combined or "UCFL206" in combined or "FLANGE BLOCK BEARING" in combined:
             return "BE-UCFL206"
         if ("CASTOR" in combined or "WHEEL" in combined) and not any(p in combined for p in ["PLATE", "BKT", "BRACKET", "FRAME"]):

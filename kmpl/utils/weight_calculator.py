@@ -183,8 +183,12 @@ def compile_summary(bom_items: list, project_no: str = "") -> list:
             gen_desc = f"{data['desc']} {moc}".strip()
         else:
             # BOP
-            length_qty = int(round(data["total_qty"]))
-            unit = "No."
+            if "WEAR STRIP" in data["desc"].upper() or "WEARSTRIP" in data["desc"].upper() or "ST-UWS" in icode:
+                length_qty = round(data["total_length_mm"] / 1000.0, 3)
+                unit = "Mtr"
+            else:
+                length_qty = int(round(data["total_qty"]))
+                unit = "No."
             gen_desc = data["desc"]
 
         thk_val = data["thk"]

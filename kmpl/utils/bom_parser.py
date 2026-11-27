@@ -454,7 +454,10 @@ def _parse_tree_solidworks_bom(sw_rows, header_row_idx, hmap, bom_header):
             unit = "Kg"
         elif "WEAR STRIP" in u_desc or "WEARSTRIP" in u_desc:
             rm_type = "Raw Material-BOP"
-            item_code = ""
+            if "2503" in u_desc or "UB01" in u_desc or "UB1" in u_desc:
+                item_code = "ST-UWS2503G"
+            else:
+                item_code = ""
             unit = "Mtr"
         elif "PU-LAGGING" in u_desc:
             rm_type = "Raw Material-BOP"
